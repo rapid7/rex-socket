@@ -17,6 +17,7 @@ module Socket
   module Comm
   end
 
+  require 'rex/socket/x509_certificate'
   require 'rex/socket/parameters'
   require 'rex/socket/tcp'
   require 'rex/socket/tcp_server'
