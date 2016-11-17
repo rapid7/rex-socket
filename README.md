@@ -1,7 +1,6 @@
 # Rex::Socket
 
-The Ruby Exploitation (Rex) Socket Abstraction Library. This library includes all of the code needed to turn sockets into
-Rex::Sockets with the functionality for things like L3 pivoting used by Metasploit.
+The Ruby Exploitation (Rex) Socket Abstraction Library. This library includes all of the code needed to turn sockets into Rex::Sockets. Rex::Sockets are used to provide L3 pivoting and proxy support in Metasploit.
 
 ## Installation
 
