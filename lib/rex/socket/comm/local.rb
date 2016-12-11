@@ -128,14 +128,14 @@ class Rex::Socket::Comm::Local
         usev6 = true
       end
 
-      # Force IPv6 mode for non-connected UDP sockets
-      if (type == ::Socket::SOCK_DGRAM and not param.peerhost)
-        # FreeBSD allows IPv6 socket creation, but throws an error on sendto()
-        # Windows 7 SP1 and newer also fail to sendto with IPv6 udp sockets
-        unless Rex::Compat.is_freebsd or Rex::Compat.is_windows
-          usev6 = true
-        end
-      end
+    #  # Force IPv6 mode for non-connected UDP sockets
+    #  if (type == ::Socket::SOCK_DGRAM and not param.peerhost)
+    #    # FreeBSD allows IPv6 socket creation, but throws an error on sendto()
+    #    # Windows 7 SP1 and newer also fail to sendto with IPv6 udp sockets
+    #    unless Rex::Compat.is_freebsd or Rex::Compat.is_windows
+    #      usev6 = true
+    #    end
+    #  end
 
       local = Rex::Socket.resolv_nbo(param.localhost) if param.localhost
       peer  = Rex::Socket.resolv_nbo(param.peerhost) if param.peerhost
