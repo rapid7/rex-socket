@@ -52,10 +52,10 @@ class Rex::Socket::Comm::Local
 
     case param.proto
       when 'tcp'
-        if (param.server?)
+        if param.server?
           sock  = TCPServer.new(param.localport, param.localhost)
           klass = Rex::Socket::TcpServer
-          if (param.ssl)
+          if param.ssl
             klass = Rex::Socket::SslTcpServer
           end
           sock.extend(klass)
@@ -63,13 +63,13 @@ class Rex::Socket::Comm::Local
         else
           sock = TCPSocket.new(param.peerhost, param.peerport)
           klass = Rex::Socket::Tcp
-          if (param.ssl)
+          if param.ssl
             klass = Rex::Socket::SslTcp
           end
           sock.extend(klass)
         end
       when 'udp'
-        if (param.server?)
+        if param.server?
           sock = UDPServer.new(param.localport, param.localhost)
           klass = Rex::Socket::UdpServer
           sock.extend(klass)
@@ -101,7 +101,7 @@ class Rex::Socket::Comm::Local
     # Configure broadcast support
     sock.setsockopt(::Socket::SOL_SOCKET, ::Socket::SO_BROADCAST, true)
 
-    if (param.bare? == false)
+    if !param.bare?
       sock.extend(::Rex::Socket::Ip)
       sock.initsock(param)
     end
@@ -163,7 +163,7 @@ class Rex::Socket::Comm::Local
 
     # Create the socket
     sock = nil
-    if (param.v6)
+    if param.v6
       sock = ::Socket.new(::Socket::AF_INET6, type, proto)
     else
       sock = ::Socket.new(::Socket::AF_INET, type, proto)
@@ -189,17 +189,17 @@ class Rex::Socket::Comm::Local
     end
 
     # Configure broadcast support for all datagram sockets
-    if (type == ::Socket::SOCK_DGRAM)
+    if type == ::Socket::SOCK_DGRAM
       sock.setsockopt(::Socket::SOL_SOCKET, ::Socket::SO_BROADCAST, true)
     end
 
     # If a server TCP instance is being created...
-    if (param.server?)
+    if param.server?
       sock.listen(256)
 
-      if (param.bare? == false)
+      if !param.bare?
         klass = Rex::Socket::TcpServer
-        if (param.ssl)
+        if param.ssl
           klass = Rex::Socket::SslTcpServer
         end
         sock.extend(klass)
@@ -211,7 +211,7 @@ class Rex::Socket::Comm::Local
       chain = []
 
       # If we were supplied with host information
-      if (param.peerhost)
+      if param.peerhost
 
         # A flag that indicates whether we need to try multiple scopes
         retry_scopes = false
@@ -299,7 +299,7 @@ class Rex::Socket::Comm::Local
         end
       end
 
-      if (param.bare? == false)
+      if !param.bare?
         case param.proto
           when 'tcp'
             klass = Rex::Socket::Tcp
@@ -411,7 +411,7 @@ class Rex::Socket::Comm::Local
     when 'http'
       setup = "CONNECT #{host}:#{port} HTTP/1.0\r\n\r\n"
       size = sock.put(setup)
-      if (size != setup.length)
+      if size != setup.length
         raise Rex::ConnectionProxyError.new(host, port, type, "Failed to send the entire request to the proxy"), caller
       end
 
@@ -434,7 +434,7 @@ class Rex::Socket::Comm::Local
     when 'socks4'
       setup = [4,1,port.to_i].pack('CCn') + Socket.gethostbyname(host)[3] + Rex::Text.rand_text_alpha(rand(8)+1) + "\x00"
       size = sock.put(setup)
-      if (size != setup.length)
+      if size != setup.length
         raise Rex::ConnectionProxyError.new(host, port, type, "Failed to send the entire request to the proxy"), caller
       end
 
@@ -444,7 +444,7 @@ class Rex::Socket::Comm::Local
         raise Rex::ConnectionProxyError.new(host, port, type, "Failed to receive a response from the proxy"), caller
       end
 
-      if (ret.nil? or ret.length < 8)
+      if ret.nil? || ret.length < 8
         raise Rex::ConnectionProxyError.new(host, port, type, "Failed to receive a complete response from the proxy"), caller
       end
       if ret[1,1] != "\x5a"
@@ -453,18 +453,18 @@ class Rex::Socket::Comm::Local
     when 'socks5'
       auth_methods = [5,1,0].pack('CCC')
       size = sock.put(auth_methods)
-      if (size != auth_methods.length)
+      if size != auth_methods.length
         raise Rex::ConnectionProxyError.new(host, port, type, "Failed to send the entire request to the proxy"), caller
       end
       ret = sock.get_once(2,30)
-      if (ret[1,1] == "\xff")
+      if ret[1,1] == "\xff"
         raise Rex::ConnectionProxyError.new(host, port, type, "The proxy requires authentication"), caller
       end
 
-      if (Rex::Socket.is_ipv4?(host))
+      if Rex::Socket.is_ipv4?(host)
         addr = Rex::Socket.gethostbyname(host)[3]
         setup = [5,1,0,1].pack('C4') + addr + [port.to_i].pack('n')
-      elsif (Rex::Socket.support_ipv6? and Rex::Socket.is_ipv6?(host))
+      elsif Rex::Socket.support_ipv6? && Rex::Socket.is_ipv6?(host)
         # IPv6 stuff all untested
         addr = Rex::Socket.gethostbyname(host)[3]
         setup = [5,1,0,4].pack('C4') + addr + [port.to_i].pack('n')
@@ -476,7 +476,7 @@ class Rex::Socket::Comm::Local
       end
 
       size = sock.put(setup)
-      if (size != setup.length)
+      if size != setup.length
         raise Rex::ConnectionProxyError.new(host, port, type, "Failed to send the entire request to the proxy"), caller
       end
 
@@ -486,7 +486,7 @@ class Rex::Socket::Comm::Local
         raise Rex::ConnectionProxyError.new(host, port, type, "Failed to receive a response from the proxy"), caller
       end
 
-      if (response.nil? or response.length < 10)
+      if response.nil? || response.length < 10
         raise Rex::ConnectionProxyError.new(host, port, type, "Failed to receive a complete response from the proxy"), caller
       end
       if response[1,1] != "\x00"
@@ -502,7 +502,6 @@ class Rex::Socket::Comm::Local
   # Registration
   #
   ##
-
   def self.register_event_handler(handler) # :nodoc:
     self.instance.register_event_handler(handler)
   end
@@ -514,5 +513,4 @@ class Rex::Socket::Comm::Local
   def self.each_event_handler(handler) # :nodoc:
     self.instance.each_event_handler(handler)
   end
-
 end
