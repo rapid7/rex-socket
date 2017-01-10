@@ -117,59 +117,41 @@ class Rex::Socket::Comm::Local
   #
   def self.create_by_type(param, type, proto = 0)
 
-    # Whether to use IPv6 addressing
-    usev6 = false
-
     # Detect IPv6 addresses and enable IPv6 accordingly
-    if ( Rex::Socket.support_ipv6?())
-
-      # Allow the caller to force IPv6
-      if (param.v6)
-        usev6 = true
-      end
-
-    #  # Force IPv6 mode for non-connected UDP sockets
-    #  if (type == ::Socket::SOCK_DGRAM and not param.peerhost)
-    #    # FreeBSD allows IPv6 socket creation, but throws an error on sendto()
-    #    # Windows 7 SP1 and newer also fail to sendto with IPv6 udp sockets
-    #    unless Rex::Compat.is_freebsd or Rex::Compat.is_windows
-    #      usev6 = true
-    #    end
-    #  end
+    if Rex::Socket.support_ipv6?
 
       local = Rex::Socket.resolv_nbo(param.localhost) if param.localhost
       peer  = Rex::Socket.resolv_nbo(param.peerhost) if param.peerhost
 
-      if (local and local.length == 16)
-        usev6 = true
+      # Enable IPv6 dual-bind mode for unbound UDP sockets on Linux
+      if type == ::Socket::SOCK_DGRAM && Rex::Compat.is_linux && !local && !peer
+        param.v6 = true
+
+      # Check if either of the addresses is 16 octets long
+      elsif (local && local.length == 16) || (peer && peer.length == 16)
+        param.v6 = true
       end
 
-      if (peer and peer.length == 16)
-        usev6 = true
-      end
-
-      if (usev6)
-        if (local and local.length == 4)
-          if (local == "\x00\x00\x00\x00")
+      if param.v6
+        if local && local.length == 4
+          if local == "\x00\x00\x00\x00"
             param.localhost = '::'
-          elsif (local == "\x7f\x00\x00\x01")
+          elsif local == "\x7f\x00\x00\x01"
             param.localhost = '::1'
           else
             param.localhost = '::ffff:' + Rex::Socket.getaddress(param.localhost, true)
           end
         end
 
-        if (peer and peer.length == 4)
-          if (peer == "\x00\x00\x00\x00")
+        if peer && peer.length == 4
+          if peer == "\x00\x00\x00\x00"
             param.peerhost = '::'
-          elsif (peer == "\x7f\x00\x00\x01")
+          elsif peer == "\x7f\x00\x00\x01"
             param.peerhost = '::1'
           else
             param.peerhost = '::ffff:' + Rex::Socket.getaddress(param.peerhost, true)
           end
         end
-
-        param.v6 = true
       end
     else
       # No IPv6 support
@@ -188,9 +170,16 @@ class Rex::Socket::Comm::Local
     end
 
     # Bind to a given local address and/or port if they are supplied
-    if param.localport or param.localhost
+    if param.localport || param.localhost
       begin
-        sock.setsockopt(::Socket::SOL_SOCKET, ::Socket::SO_REUSEADDR, true)
+
+        # SO_REUSEADDR has undesired semantics on Windows, intead allowing
+        # sockets to be stolen without warning from other unprotected
+        # processes.
+        unless Rex::Compat.is_windows
+          sock.setsockopt(::Socket::SOL_SOCKET, ::Socket::SO_REUSEADDR, true)
+        end
+
         sock.bind(Rex::Socket.to_sockaddr(param.localhost, param.localport))
 
       rescue ::Errno::EADDRNOTAVAIL,::Errno::EADDRINUSE
