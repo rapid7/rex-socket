@@ -348,7 +348,7 @@ class Rex::Socket::Comm::Local
       num_rest_nodes = 1
 
       _af, shost, sport = sock.getpeername_as_array
-      first_route_item = [shost, 0, sport, 0, 0].pack("A*CA*cc")
+      first_route_item = [shost, 0, sport.to_s, 0, 0].pack("A*CA*cc")
       route_data = [first_route_item.length, first_route_item].pack("NA*")
       route_data << [host, 0, port.to_s, 0, 0].pack("A*CA*cc")
 
