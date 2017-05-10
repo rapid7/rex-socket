@@ -149,7 +149,7 @@ class Rex::Socket::Parameters
     end
 
     if hash['Proxies']
-      self.proxies = hash['Proxies'].split('-').map{|a| a.strip}.map{|a| a.split(':').map{|b| b.strip}}
+      self.proxies = hash['Proxies'].split(',').map{|a| a.strip}.map{|a| a.split(':').map{|b| b.strip}}
     end
 
     # The protocol this socket will be using
