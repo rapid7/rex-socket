@@ -88,6 +88,8 @@ module Socket
 
   MATCH_IPV4_PRIVATE = /^\s*(?:10\.|192\.168|172.(?:1[6-9]|2[0-9]|3[01])\.|169\.254)/
 
+  MATCH_MAC_ADDR = /^\s*(([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2})|([[0-9a-fA-F]{2}]{6})\s*$/i
+
   ##
   #
   # Serialization
@@ -130,6 +132,21 @@ module Socket
   #
   def self.is_ipv6?(addr)
     ( addr =~ MATCH_IPV6 ) ? true : false
+  end
+
+  #
+  # Determine whether this is a MAC address
+  #
+  def self.is_mac_addr?(addr)
+    ( addr =~ MATCH_MAC_ADDR) ? true : false
+  end
+
+  #
+  # Determine whether this is an IP address at all
+  # Check for v4 (less expensive), v6, else false
+  #
+  def self.is_ip_addr?(addr)
+    self.is_ipv4?(addr) ? true : self.is_ipv6?(addr) ? true : false
   end
 
   #
