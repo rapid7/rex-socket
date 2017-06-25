@@ -96,7 +96,6 @@ module Socket
   #
   ##
 
-
   # Cache our IPv6 support flag
   @@support_ipv6 = nil
 
@@ -124,21 +123,21 @@ module Socket
   # Determine whether this is an IPv4 address
   #
   def self.is_ipv4?(addr)
-    ( addr =~ MATCH_IPV4 ) ? true : false
+    addr =~ MATCH_IPV4 ? true : false
   end
 
   #
   # Determine whether this is an IPv6 address
   #
   def self.is_ipv6?(addr)
-    ( addr =~ MATCH_IPV6 ) ? true : false
+    addr =~ MATCH_IPV6 ? true : false
   end
 
   #
   # Determine whether this is a MAC address
   #
   def self.is_mac_addr?(addr)
-    ( addr =~ MATCH_MAC_ADDR) ? true : false
+    addr =~ MATCH_MAC_ADDR ? true : false
   end
 
   #
@@ -146,20 +145,14 @@ module Socket
   # Check for v4 (less expensive), v6, else false
   #
   def self.is_ip_addr?(addr)
-    self.is_ipv4?(addr) ? true : self.is_ipv6?(addr) ? true : false
+    self.is_ipv4?(addr) || self.is_ipv6?(addr)
   end
 
   #
   # Checks to see if the supplied address is in "dotted" form
   #
   def self.dotted_ip?(addr)
-    # Match IPv6
-    return true if (support_ipv6? and addr =~ MATCH_IPV6)
-
-    # Match IPv4
-    return true if (addr =~ MATCH_IPV4)
-
-    false
+    (support_ipv6? && addr =~ MATCH_IPV6) || (addr =~ MATCH_IPV4)
   end
 
   #
@@ -167,11 +160,7 @@ module Socket
   # RFC5735/RFC3927
   #
   def self.is_internal?(addr)
-    if self.dotted_ip?(addr)
-      addr =~ MATCH_IPV4_PRIVATE
-    else
-      false
-    end
+    self.dotted_ip?(addr) && addr =~ MATCH_IPV4_PRIVATE
   end
 
   # Get the first address returned by a DNS lookup for +hostname+.
@@ -193,7 +182,7 @@ module Socket
   # @param hostname [String] A hostname or ASCII IP address
   # @return [Array<String>]
   def self.getaddresses(hostname, accept_ipv6 = true)
-    if hostname =~ MATCH_IPV4 or (accept_ipv6 and hostname =~ MATCH_IPV6)
+    if hostname =~ MATCH_IPV4 || (accept_ipv6 && hostname =~ MATCH_IPV6)
       return [hostname]
     end
 
@@ -229,7 +218,7 @@ module Socket
   # on Windows.
   #
   def self.gethostbyname(host)
-    if (is_ipv4?(host))
+    if is_ipv4?(host)
       return [ host, [], 2, host.split('.').map{ |c| c.to_i }.pack("C4") ]
     end
 
@@ -247,8 +236,7 @@ module Socket
   # address family
   #
   def self.to_sockaddr(ip, port)
-
-    if (ip == '::ffff:0.0.0.0')
+    if ip == '::ffff:0.0.0.0'
       ip = support_ipv6?() ? '::' : '0.0.0.0'
     end
 
@@ -262,7 +250,7 @@ module Socket
   def self.from_sockaddr(saddr)
     port, host = ::Socket::unpack_sockaddr_in(saddr)
     af = ::Socket::AF_INET
-    if (support_ipv6?() and is_ipv6?(host))
+    if support_ipv6?() && is_ipv6?(host)
       af = ::Socket::AF_INET6
     end
     return [ af, host, port ]
@@ -488,7 +476,6 @@ module Socket
   # lame kid way of doing it.
   #
   def self.net2bitmask(netmask)
-
     nmask = resolv_nbo(netmask)
     imask = addr_ntoi(nmask)
     bits  = 32
@@ -768,8 +755,8 @@ module Socket
   def peerinfo
     if (pi = getpeername_as_array)
       return pi[1] + ':' + pi[2].to_s
-    end 
-  end 
+    end
+  end
 
   #
   # Returns local information (host + port) in host:port format.
@@ -777,8 +764,8 @@ module Socket
   def localinfo
     if (pi = getlocalname)
       return pi[1] + ':' + pi[2].to_s
-    end 
-  end 
+    end
+  end
 
   #
   # Returns a string that indicates the type of the socket, such as 'tcp'.
