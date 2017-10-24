@@ -133,22 +133,37 @@ module Rex::Socket::SslTcpServer
     Rex::Socket::SslTcpServer.ssl_parse_pem(ssl_cert)
   end
 
+  def self.ssl_generate_subject
+    st  = Rex::Text.rand_state
+    loc = Rex::Text.rand_name.capitalize
+    org = Rex::Text.rand_name.capitalize
+    cn  = Rex::Text.rand_hostname
+    "US/ST=#{st}/L=#{loc}/O=#{org}/CN=#{cn}"
+  end
+
+  def self.ssl_generate_issuer
+    org = Rex::Text.rand_name.capitalize
+    cn  = Rex::Text.rand_name.capitalize + " " + Rex::Text.rand_name.capitalize
+    "US/O=#{org}/CN=#{cn}"
+  end
+
   #
   # Generate a realistic-looking but obstensibly fake SSL
   # certificate. This matches a typical "snakeoil" cert.
   #
   # @return [String, String, Array]
   def self.ssl_generate_certificate
-    yr   = 24*3600*365
-    vf   = Time.at(Time.now.to_i - rand(yr * 3) - yr)
-    vt   = Time.at(vf.to_i + (10 * yr))
-    cn   = Rex::Text.rand_text_alpha_lower(rand(8)+2)
-    key  = OpenSSL::PKey::RSA.new(2048){ }
-    cert = OpenSSL::X509::Certificate.new
+    yr      = 24*3600*365
+    vf      = Time.at(Time.now.to_i - rand(yr * 3) - yr)
+    vt      = Time.at(vf.to_i + (rand(9)+1) * yr)
+    subject = ssl_generate_subject
+    issuer  = ssl_generate_issuer
+    key     = OpenSSL::PKey::RSA.new(2048){ }
+    cert    = OpenSSL::X509::Certificate.new
     cert.version    = 2
     cert.serial     = (rand(0xFFFFFFFF) << 32) + rand(0xFFFFFFFF)
-    cert.subject    = OpenSSL::X509::Name.new([["CN", cn]])
-    cert.issuer     = OpenSSL::X509::Name.new([["CN", cn]])
+    cert.subject    = OpenSSL::X509::Name.new([["C", subject]])
+    cert.issuer     = OpenSSL::X509::Name.new([["C", issuer]])
     cert.not_before = vf
     cert.not_after  = vt
     cert.public_key = key.public_key
