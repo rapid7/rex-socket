@@ -1,5 +1,6 @@
 # -*- coding: binary -*-
 require 'rex/socket'
+require 'openssl'
 ###
 #
 # This class provides methods for interacting with an SSL TCP client
@@ -9,15 +10,6 @@ require 'rex/socket'
 module Rex::Socket::SslTcp
 
 begin
-  @@loaded_openssl = false
-
-  begin
-    require 'openssl'
-    @@loaded_openssl = true
-    require 'openssl/nonblock'
-  rescue ::Exception
-  end
-
 
   include Rex::Socket::Tcp
 
@@ -31,7 +23,6 @@ begin
   # Creates an SSL TCP instance.
   #
   def self.create(hash = {})
-    raise RuntimeError, "No OpenSSL support" if not @@loaded_openssl
     hash['SSL'] = true
     self.create_param(Rex::Socket::Parameters.from_hash(hash))
   end

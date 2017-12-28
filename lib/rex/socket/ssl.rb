@@ -1,6 +1,7 @@
 # -*- coding: binary -*-
 require 'rex/socket/x509_certificate'
 require 'timeout'
+require 'openssl'
 
 ###
 #
@@ -9,15 +10,6 @@ require 'timeout'
 #
 ###
 module Rex::Socket::Ssl
-
-  @@loaded_openssl = false
-
-  begin
-    require 'openssl'
-    @@loaded_openssl = true
-    require 'openssl/nonblock'
-  rescue ::Exception
-  end
 
   module CertProvider
 
