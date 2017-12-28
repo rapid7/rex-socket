@@ -19,6 +19,65 @@ module Rex::Socket::Ssl
   rescue ::Exception
   end
 
+  module CertProvider
+
+    def self.ssl_generate_subject
+      st  = Rex::Text.rand_state
+      loc = Rex::Text.rand_name.capitalize
+      org = Rex::Text.rand_name.capitalize
+      cn  = Rex::Text.rand_hostname
+      "US/ST=#{st}/L=#{loc}/O=#{org}/CN=#{cn}"
+    end
+
+    def self.ssl_generate_issuer
+      org = Rex::Text.rand_name.capitalize
+      cn  = Rex::Text.rand_name.capitalize + " " + Rex::Text.rand_name.capitalize
+      "US/O=#{org}/CN=#{cn}"
+    end
+
+    #
+    # Generate a realistic-looking but obstensibly fake SSL
+    # certificate. This matches a typical "snakeoil" cert.
+    #
+    # @return [String, String, Array]
+    def self.ssl_generate_certificate
+      yr      = 24*3600*365
+      vf      = Time.at(Time.now.to_i - rand(yr * 3) - yr)
+      vt      = Time.at(vf.to_i + (rand(9)+1) * yr)
+      subject = ssl_generate_subject
+      issuer  = ssl_generate_issuer
+      key     = OpenSSL::PKey::RSA.new(2048){ }
+      cert    = OpenSSL::X509::Certificate.new
+      cert.version    = 2
+      cert.serial     = (rand(0xFFFFFFFF) << 32) + rand(0xFFFFFFFF)
+      cert.subject    = OpenSSL::X509::Name.new([["C", subject]])
+      cert.issuer     = OpenSSL::X509::Name.new([["C", issuer]])
+      cert.not_before = vf
+      cert.not_after  = vt
+      cert.public_key = key.public_key
+
+      ef = OpenSSL::X509::ExtensionFactory.new(nil,cert)
+      cert.extensions = [
+        ef.create_extension("basicConstraints","CA:FALSE")
+      ]
+      ef.issuer_certificate = cert
+
+      cert.sign(key, OpenSSL::Digest::SHA256.new)
+
+      [key, cert, nil]
+    end
+  end
+
+  # This defines the global certificate provider for all consumers of the mixin
+  # Beware that altering this at runtime in one consumer will affect all others
+  # Providers must expose at least the class methods given above accepting the
+  # same calling convention.
+  @@cert_provider = Rex::Socket::Ssl::CertProvider
+
+  def self.cert_provider=(val)
+    @@cert_provider = val
+  end
+
   #
   # Parse a certificate in unified PEM format that contains a private key and
   # one or more certificates. The first certificate is the primary, while any
@@ -31,64 +90,30 @@ module Rex::Socket::Ssl
     Rex::Socket::X509Certificate.parse_pem(ssl_cert)
   end
 
+  def self.ssl_generate_subject
+    @@cert_provider.ssl_generate_subject
+  end
+
+  def self.ssl_generate_issuer
+    @@cert_provider.ssl_generate_issuer
+  end
+
+  def self.ssl_generate_certificate
+    @@cert_provider.ssl_generate_certificate
+  end
+
   #
   # Shim for the ssl_parse_pem module method
   #
   def ssl_parse_pem(ssl_cert)
-    Rex::Socket::SslTcpServer.ssl_parse_pem(ssl_cert)
-  end
-
-  def self.ssl_generate_subject
-    st  = Rex::Text.rand_state
-    loc = Rex::Text.rand_name.capitalize
-    org = Rex::Text.rand_name.capitalize
-    cn  = Rex::Text.rand_hostname
-    "US/ST=#{st}/L=#{loc}/O=#{org}/CN=#{cn}"
-  end
-
-  def self.ssl_generate_issuer
-    org = Rex::Text.rand_name.capitalize
-    cn  = Rex::Text.rand_name.capitalize + " " + Rex::Text.rand_name.capitalize
-    "US/O=#{org}/CN=#{cn}"
-  end
-
-  #
-  # Generate a realistic-looking but obstensibly fake SSL
-  # certificate. This matches a typical "snakeoil" cert.
-  #
-  # @return [String, String, Array]
-  def self.ssl_generate_certificate
-    yr      = 24*3600*365
-    vf      = Time.at(Time.now.to_i - rand(yr * 3) - yr)
-    vt      = Time.at(vf.to_i + (rand(9)+1) * yr)
-    subject = ssl_generate_subject
-    issuer  = ssl_generate_issuer
-    key     = OpenSSL::PKey::RSA.new(2048){ }
-    cert    = OpenSSL::X509::Certificate.new
-    cert.version    = 2
-    cert.serial     = (rand(0xFFFFFFFF) << 32) + rand(0xFFFFFFFF)
-    cert.subject    = OpenSSL::X509::Name.new([["C", subject]])
-    cert.issuer     = OpenSSL::X509::Name.new([["C", issuer]])
-    cert.not_before = vf
-    cert.not_after  = vt
-    cert.public_key = key.public_key
-
-    ef = OpenSSL::X509::ExtensionFactory.new(nil,cert)
-    cert.extensions = [
-      ef.create_extension("basicConstraints","CA:FALSE")
-    ]
-    ef.issuer_certificate = cert
-
-    cert.sign(key, OpenSSL::Digest::SHA256.new)
-
-    [key, cert, nil]
+    Rex::Socket::Ssl.ssl_parse_pem(ssl_cert)
   end
 
   #
   # Shim for the ssl_generate_certificate module method
   #
   def ssl_generate_certificate
-    Rex::Socket::SslTcpServer.ssl_generate_certificate
+    Rex::Socket::Ssl.ssl_generate_certificate
   end
 
   #
