@@ -88,7 +88,7 @@ module Socket
 
   MATCH_IPV4_PRIVATE = /^\s*(?:10\.|192\.168|172.(?:1[6-9]|2[0-9]|3[01])\.|169\.254)/
 
-  MATCH_MAC_ADDR = /^\s*(([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2})|([[0-9a-fA-F]{2}]{6})\s*$/i
+  MATCH_MAC_ADDR = /^(?:[[:xdigit:]]{2}([-:]))(?:[[:xdigit:]]{2}\1){4}[[:xdigit:]]{2}$/
 
   ##
   #
@@ -137,7 +137,7 @@ module Socket
   # Determine whether this is a MAC address
   #
   def self.is_mac_addr?(addr)
-    addr =~ MATCH_MAC_ADDR ? true : false
+    !(addr =~ MATCH_MAC_ADDR).nil?
   end
 
   #
