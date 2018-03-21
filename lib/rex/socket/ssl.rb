@@ -18,13 +18,13 @@ module Rex::Socket::Ssl
       loc = Rex::Text.rand_name.capitalize
       org = Rex::Text.rand_name.capitalize
       cn  = Rex::Text.rand_hostname
-      "US/ST=#{st}/L=#{loc}/O=#{org}/CN=#{cn}"
+      "/C=US/ST=#{st}/L=#{loc}/O=#{org}/CN=#{cn}"
     end
 
     def self.ssl_generate_issuer
       org = Rex::Text.rand_name.capitalize
       cn  = Rex::Text.rand_name.capitalize + " " + Rex::Text.rand_name.capitalize
-      "US/O=#{org}/CN=#{cn}"
+      "/C=US/O=#{org}/CN=#{cn}"
     end
 
     #
@@ -42,8 +42,8 @@ module Rex::Socket::Ssl
       cert    = OpenSSL::X509::Certificate.new
       cert.version    = 2
       cert.serial     = (rand(0xFFFFFFFF) << 32) + rand(0xFFFFFFFF)
-      cert.subject    = OpenSSL::X509::Name.new([["C", subject]])
-      cert.issuer     = OpenSSL::X509::Name.new([["C", issuer]])
+      cert.subject    = OpenSSL::X509::Name.parse(subject)
+      cert.issuer     = OpenSSL::X509::Name.parse(issuer)
       cert.not_before = vf
       cert.not_after  = vt
       cert.public_key = key.public_key
@@ -162,4 +162,3 @@ module Rex::Socket::Ssl
 
   attr_accessor :sslctx
 end
-
