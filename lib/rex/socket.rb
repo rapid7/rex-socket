@@ -305,11 +305,11 @@ module Socket
   # Resolves a CIDR bitmask into a dotted-quad. Returns
   # nil if it's not convertable.
   #
-  def self.addr_ctoa(cidr, v6=false)
+  def self.addr_ctoa(cidr, v6: false)
     bits = v6 ? 128 : 32
     cidr = cidr.to_i
     return nil unless (0..bits) === cidr
-    addr_itoa(((1 << cidr)-1) << bits-cidr, v6=v6)
+    addr_itoa(((1 << cidr)-1) << bits-cidr, v6)
   end
 
   #
