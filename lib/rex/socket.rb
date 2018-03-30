@@ -305,11 +305,11 @@ module Socket
   # Resolves a CIDR bitmask into a dotted-quad. Returns
   # nil if it's not convertable.
   #
-  def self.addr_ctoa(cidr, v6: false)
+  def self.addr_ctoa(cidr, v6=false)
     bits = v6 ? 128 : 32
     cidr = cidr.to_i
     return nil unless (0..bits) === cidr
-    addr_itoa(((1 << cidr)-1) << bits-cidr, v6: v6)
+    addr_itoa(((1 << cidr)-1) << bits-cidr, v6=v6)
   end
 
   #
@@ -338,7 +338,7 @@ module Socket
   #
   # @param (see #addr_iton)
   # @return (see #addr_ntoa)
-  def self.addr_itoa(addr, v6: false)
+  def self.addr_itoa(addr, v6=false)
     nboa = addr_iton(addr, v6)
 
     addr_ntoa(nboa)
@@ -419,7 +419,7 @@ module Socket
   #
   # @param addr [Numeric] The address as a number
   # @param v6 [Boolean] Whether +addr+ is IPv6
-  def self.addr_iton(addr, v6: false)
+  def self.addr_iton(addr, v6=false)
     if(addr < 0x100000000 && !v6)
       return [addr].pack('N')
     else
@@ -449,7 +449,7 @@ module Socket
   #
   # Converts a CIDR subnet into an array (base, bcast)
   #
-  def self.cidr_crack(cidr, v6: false)
+  def self.cidr_crack(cidr, v6=false)
     tmp = cidr.split('/')
 
     tst,scope = tmp[0].split("%",2)
@@ -498,7 +498,7 @@ module Socket
   #
   # Converts a bitmask (28) into a netmask (255.255.255.240)
   #
-  def self.bit2netmask(bitmask, ipv6: false)
+  def self.bit2netmask(bitmask, ipv6=false)
     if bitmask > 32 or ipv6
       i = ((~((2 ** (128 - bitmask)) - 1)) & (2**128-1))
       n = Rex::Socket.addr_iton(i, true)
