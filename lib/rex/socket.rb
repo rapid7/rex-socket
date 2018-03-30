@@ -289,10 +289,11 @@ module Socket
   # nil if it's not convertable.
   #
   def self.addr_atoc(mask)
+    bits = is_ipv6?(mask) ? 128 : 32
     mask_i = resolv_nbo_i(mask)
     cidr = nil
-    0.upto(32) do |i|
-      if ((1 << i)-1) << (32-i) == mask_i
+    0.upto(bits) do |i|
+      if ((1 << i)-1) << (bits - i) == mask_i
         cidr = i
         break
       end
@@ -304,9 +305,11 @@ module Socket
   # Resolves a CIDR bitmask into a dotted-quad. Returns
   # nil if it's not convertable.
   #
-  def self.addr_ctoa(cidr)
-    return nil unless (0..32) === cidr.to_i
-    addr_itoa(((1 << cidr)-1) << 32-cidr)
+  def self.addr_ctoa(cidr, v6=false)
+    bits = v6 ? 128 : 32
+    cidr = cidr.to_i
+    return nil unless (0..bits) === cidr
+    addr_itoa(((1 << cidr)-1) << bits-cidr, v6=v6)
   end
 
   #
