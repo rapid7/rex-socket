@@ -38,7 +38,6 @@ module Rex
             'MsfExploit'   => msfmodule
           }
         )
-        msfmodule.add_socket(socket) if msfmodule
         socket
       end
     end
