@@ -76,7 +76,7 @@ class RangeWalker
   def parse(parseme)
     return nil if not parseme
     ranges = []
-    parseme.split(', ').map{ |a| a.split(' ') }.flatten.each do |arg|
+    parseme.split(',').map{ |a| a.split(' ') }.flatten.each do |arg|
       opts = {}
 
       # Handle IPv6 first (support ranges, but not CIDR)
