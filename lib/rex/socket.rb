@@ -602,12 +602,13 @@ module Socket
         'Comm'     => comm
       )
       r = s.getsockname[1]
-      s.close
 
       # Trim off the trailing interface ID for link-local IPv6
       return r.split('%').first
     rescue ::Exception
       return '127.0.0.1'
+    ensure
+      s.close if s
     end
   end
 
