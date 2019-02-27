@@ -79,8 +79,21 @@ class RangeWalker
     parseme.split(', ').map{ |a| a.split(' ') }.flatten.each do |arg|
       opts = {}
 
-      # Handle IPv6 first (support ranges, but not CIDR)
-      if arg.include?(":")
+      # Handle IPv6 CIDR first
+      if arg.include?(':') && arg.include?('/')
+        return false if !valid_cidr_chars?(arg)
+
+        ip_part, mask_part = arg.split("/")
+        return false unless (0..128).include? mask_part.to_i
+
+        addr, scope_id = ip_part.split('%')
+        return false unless Rex::Socket.is_ipv6?(addr)
+
+        range = expand_cidr(addr + '/' + mask_part)
+        range.options[:scope_id] = scope_id if scope_id
+        ranges.push(range)
+      # Handle plain IPv6 next (support ranges, but not CIDR)
+      elsif arg.include?(':')
         addrs = arg.split('-', 2)
 
         # Handle a single address
@@ -97,8 +110,9 @@ class RangeWalker
 
         addr1, scope_id = addrs[0].split('%')
         opts[:scope_id] = scope_id if scope_id
+        opts[:ipv6] = true
 
-        addr2, scope_id = addrs[0].split('%')
+        addr2, scope_id = addrs[1].split('%')
         ( opts[:scope_id] ||= scope_id ) if scope_id
 
         # Both have to be IPv6 for this to work
@@ -114,12 +128,9 @@ class RangeWalker
       # Handle IPv4 CIDR
       elsif arg.include?("/")
         # Then it's CIDR notation and needs special case
-        return false if arg =~ /[,-]/ # Improper CIDR notation (can't mix with 1,3 or 1-3 style IP ranges)
-        return false if arg.scan("/").size > 1 # ..but there are too many slashes
-        ip_part,mask_part = arg.split("/")
-        return false if ip_part.nil? or ip_part.empty? or mask_part.nil? or mask_part.empty?
-        return false if mask_part !~ /^[0-9]{1,2}$/ # Illegal mask -- numerals only
-        return false if mask_part.to_i > 32 # This too -- between 0 and 32.
+        return false if !valid_cidr_chars?(arg)
+        ip_part, mask_part = arg.split("/")
+        return false unless (0..32).include? mask_part.to_i
         if ip_part =~ /^\d{1,3}(\.\d{1,3}){1,3}$/
           return false unless ip_part =~ Rex::Socket::MATCH_IPV4
         end
@@ -415,6 +426,17 @@ class RangeWalker
     rng.stop = addrs[addrs.length - 1]
     ranges.push(rng.dup)
     return ranges
+  end
+
+  protected
+
+  def valid_cidr_chars?(arg)
+    return false if arg.include? ',-' # Improper CIDR notation (can't mix with 1,3 or 1-3 style IP ranges)
+    return false if arg.scan("/").size > 1 # ..but there are too many slashes
+    ip_part, mask_part = arg.split("/")
+    return false if ip_part.nil? || ip_part.empty? || mask_part.nil? || mask_part.empty?
+    return false if mask_part !~ /^[0-9]{1,3}$/ # Illegal mask -- numerals only
+    true
   end
 
 end

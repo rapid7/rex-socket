@@ -52,6 +52,27 @@ RSpec.describe Rex::Socket::RangeWalker do
       expect(walker.next).to eq "10.1.1.1"
     end
 
+    it "should handle longform IPv6 ranges" do
+      walker = Rex::Socket::RangeWalker.new("::1-::2")
+      expect(walker).to be_valid
+      expect(walker.length).to eq 2
+      expect(walker.next).to eq "::1"
+    end
+
+    it "should handle IPv6 CIDR ranges" do
+      walker = Rex::Socket::RangeWalker.new("::1/127")
+      expect(walker).to be_valid
+      expect(walker.length).to eq 2
+      expect(walker.next).to eq "::"
+    end
+
+    it "should handle IPv6 CIDR ranges with a scope" do
+      walker = Rex::Socket::RangeWalker.new("::1%lo/127")
+      expect(walker).to be_valid
+      expect(walker.length).to eq 2
+      expect(walker.next).to eq "::%lo"
+    end
+
     context "with mulitple ranges" do
       let(:args) { "1.1.1.1-2 2.1-2.2.2 3.1-2.1-2.1 " }
       it { is_expected.to be_valid }
