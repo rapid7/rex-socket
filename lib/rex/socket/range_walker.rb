@@ -81,7 +81,7 @@ class RangeWalker
 
       # Handle IPv6 CIDR first
       if arg.include?(':') && arg.include?('/')
-        return false if !valid_cidr_chars(arg)
+        return false if !valid_cidr_chars?(arg)
 
         ip_part,mask_part = arg.split("/")
         return false unless (0..128).include? mask_part.to_i
@@ -128,7 +128,7 @@ class RangeWalker
       # Handle IPv4 CIDR
       elsif arg.include?("/")
         # Then it's CIDR notation and needs special case
-        return false if !valid_cidr_chars(arg)
+        return false if !valid_cidr_chars?(arg)
         ip_part,mask_part = arg.split("/")
         return false unless (0..32).include? mask_part.to_i
         if ip_part =~ /^\d{1,3}(\.\d{1,3}){1,3}$/
@@ -430,11 +430,11 @@ class RangeWalker
 
   protected
 
-  def valid_cidr_chars(arg)
+  def valid_cidr_chars?(arg)
     return false if arg.include? ',-' # Improper CIDR notation (can't mix with 1,3 or 1-3 style IP ranges)
     return false if arg.scan("/").size > 1 # ..but there are too many slashes
-    ip_part,mask_part = arg.split("/")
-    return false if ip_part.nil? or ip_part.empty? or mask_part.nil? or mask_part.empty?
+    ip_part, mask_part = arg.split("/")
+    return false if ip_part.nil? || ip_part.empty? || mask_part.nil? || mask_part.empty?
     return false if mask_part !~ /^[0-9]{1,3}$/ # Illegal mask -- numerals only
     true
   end
