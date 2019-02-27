@@ -97,8 +97,9 @@ class RangeWalker
 
         addr1, scope_id = addrs[0].split('%')
         opts[:scope_id] = scope_id if scope_id
+        opts[:ipv6] = true
 
-        addr2, scope_id = addrs[0].split('%')
+        addr2, scope_id = addrs[1].split('%')
         ( opts[:scope_id] ||= scope_id ) if scope_id
 
         # Both have to be IPv6 for this to work
