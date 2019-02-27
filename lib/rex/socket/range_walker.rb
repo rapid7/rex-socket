@@ -83,7 +83,7 @@ class RangeWalker
       if arg.include?(':') && arg.include?('/')
         return false if !valid_cidr_chars?(arg)
 
-        ip_part,mask_part = arg.split("/")
+        ip_part, mask_part = arg.split("/")
         return false unless (0..128).include? mask_part.to_i
 
         addr, scope_id = ip_part.split('%')
@@ -129,7 +129,7 @@ class RangeWalker
       elsif arg.include?("/")
         # Then it's CIDR notation and needs special case
         return false if !valid_cidr_chars?(arg)
-        ip_part,mask_part = arg.split("/")
+        ip_part, mask_part = arg.split("/")
         return false unless (0..32).include? mask_part.to_i
         if ip_part =~ /^\d{1,3}(\.\d{1,3}){1,3}$/
           return false unless ip_part =~ Rex::Socket::MATCH_IPV4
