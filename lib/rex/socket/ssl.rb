@@ -13,12 +13,10 @@ module Rex::Socket::Ssl
 
   module CertProvider
 
-    def self.ssl_generate_subject
+    def self.ssl_generate_subject(cn = Rex::Text.rand_hostname, org = Rex::Text.rand_name)
       st  = Rex::Text.rand_state
       loc = Rex::Text.rand_name.capitalize
-      org = Rex::Text.rand_name.capitalize
-      cn  = Rex::Text.rand_hostname
-      "/C=US/ST=#{st}/L=#{loc}/O=#{org}/CN=#{cn}"
+      "/C=US/ST=#{st}/L=#{loc}/O=#{org.capitalize}/CN=#{cn}"
     end
 
     def self.ssl_generate_issuer
@@ -32,11 +30,11 @@ module Rex::Socket::Ssl
     # certificate. This matches a typical "snakeoil" cert.
     #
     # @return [String, String, Array]
-    def self.ssl_generate_certificate
+    def self.ssl_generate_certificate(cn = Rex::Text.rand_hostname, org = Rex::Text.rand_name)
       yr      = 24*3600*365
       vf      = Time.at(Time.now.to_i - rand(yr * 3) - yr)
       vt      = Time.at(vf.to_i + (rand(9)+1) * yr)
-      subject = ssl_generate_subject
+      subject = ssl_generate_subject(cn, org)
       issuer  = ssl_generate_issuer
       key     = OpenSSL::PKey::RSA.new(2048){ }
       cert    = OpenSSL::X509::Certificate.new
@@ -119,7 +117,7 @@ module Rex::Socket::Ssl
     if params.ssl_cert
       key, cert, chain = ssl_parse_pem(params.ssl_cert)
     else
-      key, cert, chain = ssl_generate_certificate
+      key, cert, chain = ssl_generate_certificate(params.ssl_cn)
     end
 
     ctx = OpenSSL::SSL::SSLContext.new()

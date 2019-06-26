@@ -140,6 +140,14 @@ class Rex::Socket::Parameters
       self.ssl_cipher = hash['SSLCipher']
     end
 
+    if (hash['VHOST'])
+      self.ssl_cn = hash['VHOST']
+    end
+
+    if (hash['SSLCommonName'])
+      self.ssl_cn = hash['SSLCommonName']
+    end
+
     if (hash['SSLCert'] and ::File.file?(hash['SSLCert']))
       begin
         self.ssl_cert = ::File.read(hash['SSLCert'])
@@ -358,6 +366,10 @@ class Rex::Socket::Parameters
   # ["DHE-RSA-AES256-SHA", "DHE-DSS-AES256-SHA"]
   # @return [String,Array]
   attr_accessor :ssl_cipher
+
+  # Which Common Name to use for certificate
+  # @return [String}
+  attr_accessor :ssl_cn
 
   # The SSL certificate, in pem format, stored as a string.  See
   # {Rex::Socket::SslTcpServer#makessl}
