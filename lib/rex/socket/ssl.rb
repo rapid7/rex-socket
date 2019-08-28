@@ -88,8 +88,8 @@ module Rex::Socket::Ssl
     @@cert_provider.ssl_generate_issuer
   end
 
-  def self.ssl_generate_certificate
-    @@cert_provider.ssl_generate_certificate
+  def self.ssl_generate_certificate(cn = Rex::Text.rand_hostname, org = Rex::Text.rand_name)
+    @@cert_provider.ssl_generate_certificate(cn, org)
   end
 
   #
@@ -102,8 +102,8 @@ module Rex::Socket::Ssl
   #
   # Shim for the ssl_generate_certificate module method
   #
-  def ssl_generate_certificate
-    Rex::Socket::Ssl.ssl_generate_certificate
+  def ssl_generate_certificate(cn = Rex::Text.rand_hostname, org = Rex::Text.rand_name)
+    Rex::Socket::Ssl.ssl_generate_certificate(cn, org)
   end
 
   #
