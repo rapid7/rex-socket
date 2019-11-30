@@ -35,7 +35,7 @@ module Rex::Socket::Ssl
     def self.ssl_generate_certificate(cert_vars: {}, **opts)
       yr      = 24*3600*365
       vf      = Time.at(Time.now.to_i - rand(yr * 3) - yr)
-      vt      = Time.at(vf.to_i + (rand(9)+1) * yr)
+      vt      = Time.at(vf.to_i + (rand(4..9) * yr))
       subject = ssl_generate_subject(**cert_vars)
       issuer  = ssl_generate_issuer
       key     = OpenSSL::PKey::RSA.new(2048){ }
