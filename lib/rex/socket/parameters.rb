@@ -154,6 +154,8 @@ class Rex::Socket::Parameters
       rescue ::Exception => e
         elog("Failed to read cert: #{e.class}: #{e}", LogSource)
       end
+    elsif hash['SSLCertRaw']
+      self.ssl_cert = hash['SSLCertRaw']
     end
 
     if (hash['SSLClientCert'] and ::File.file?(hash['SSLClientCert']))
@@ -162,6 +164,8 @@ class Rex::Socket::Parameters
       rescue ::Exception => e
         elog("Failed to read client cert: #{e.class}: #{e}", LogSource)
       end
+    elsif hash['SSLClientCertRaw']
+      self.ssl_client_cert = hash['SSLClientCertRaw']
     end
 
     if (hash['SSLClientKey'] and ::File.file?(hash['SSLClientKey']))
@@ -170,6 +174,8 @@ class Rex::Socket::Parameters
       rescue ::Exception => e
         elog("Failed to read client key: #{e.class}: #{e}", LogSource)
       end
+    elsif hash['SSLClientKeyRaw']
+      self.ssl_client_key = hash['SSLClientKeyRaw']
     end
 
     if hash['Proxies']
@@ -229,6 +235,41 @@ class Rex::Socket::Parameters
 
     # Whether to force IPv6 addressing
     self.v6        = hash['IPv6'] || false
+  end
+
+  def to_hash
+    settings = {}
+    settings['PeerHost'] = self.peerhost unless self.peerhost.nil?
+    settings['LocalHost'] = self.localhost
+    settings['PeerPort'] = self.peerport
+    settings['LocalPort'] = self.localport
+    settings['Bare'] = self.bare
+
+    settings['SSL'] = self.ssl
+    settings['SSLContext'] = self.sslctx unless self.sslctx.nil?
+    settings['SSLVersion'] = self.ssl_version unless self.ssl_version.nil?
+    settings['SSLVerifyMode'] = self.ssl_verify_mode unless self.ssl_verify_mode.nil?
+    settings['SSLCompression'] = self.ssl_compression unless self.ssl_compression.nil?
+    settings['SSLCipher'] = self.ssl_cipher unless self.ssl_cipher.nil?
+    settings['SSLCommonName'] = self.ssl_cn unless self.ssl_cn.nil?
+    settings['SSLCertRaw'] = self.ssl_cert unless self.ssl_cert.nil?
+    settings['SSLClientCertRaw'] = self.ssl_client_cert unless self.ssl_client_cert.nil?
+    settings['SSLClientKeyRaw'] = self.ssl_client_key unless self.ssl_client_key.nil?
+
+    settings['Proxies'] = self.proxies.map{|a| a.join(':')}.join(',') unless self.proxies.nil?
+    settings['Proto'] = self.proto
+    settings['Server'] = self.server
+    settings['Comm'] = self.comm
+    settings['Context'] = self.context
+    settings['Retries'] = self.retries
+    settings['Timeout'] = self.timeout
+    settings['IPv6'] = self.v6
+
+    settings
+  end
+
+  def merge_hash(other_hash)
+    self.class.from_hash(to_hash.merge(other_hash))
   end
 
   ##
@@ -403,4 +444,5 @@ class Rex::Socket::Parameters
 
   alias peeraddr  peerhost
   alias localaddr localhost
+  alias to_h      to_hash
 end
