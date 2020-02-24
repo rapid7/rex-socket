@@ -32,10 +32,20 @@ RSpec.describe Rex::Socket::Parameters do
   end
 
   describe '#merge' do
+    it "should handle merging" do
+      new_params = params.merge(Rex::Socket::Parameters.new({"LocalHost" => "5.6.7.8", "LocalPort" => 5678 }))
+      expect(params.localhost).to eq "0.0.0.0"
+      expect(params.localport).to eq 0
+      expect(new_params.localhost).to eq "5.6.7.8"
+      expect(new_params.localport).to eq 5678
+    end
+
     it "should handle merging hash options" do
       expect(params.localhost).to eq "0.0.0.0"
       expect(params.localport).to eq 0
       new_params = params.merge({"LocalHost" => "5.6.7.8", "LocalPort" => 5678 })
+      expect(params.localhost).to eq "0.0.0.0"
+      expect(params.localport).to eq 0
       expect(new_params.localhost).to eq "5.6.7.8"
       expect(new_params.localport).to eq 5678
     end
@@ -43,6 +53,7 @@ RSpec.describe Rex::Socket::Parameters do
     it "should handle new proxy definitions" do
       expect(params.proxies).to eq nil
       new_params = params.merge({"Proxies" => "1.2.3.4:1234, 5.6.7.8:5678"})
+      expect(params.proxies).to eq nil
       expect(new_params.proxies).to eq [
         ["1.2.3.4", "1234"],
         ["5.6.7.8", "5678"]
@@ -51,10 +62,10 @@ RSpec.describe Rex::Socket::Parameters do
   end
 
   describe '#merge!' do
-    it "should handle merging hash options in place" do
+    it "should handle merging in place" do
       expect(params.localhost).to eq "0.0.0.0"
       expect(params.localport).to eq 0
-      params.merge!({"LocalHost" => "5.6.7.8", "LocalPort" => 5678 })
+      params.merge!(Rex::Socket::Parameters.new({"LocalHost" => "5.6.7.8", "LocalPort" => 5678 }))
       expect(params.localhost).to eq "5.6.7.8"
       expect(params.localport).to eq 5678
     end

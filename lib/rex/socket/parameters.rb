@@ -329,15 +329,16 @@ class Rex::Socket::Parameters
   def comm
     return @comm unless @comm.nil?
 
+    best_comm = nil
     # If no comm was explicitly specified, try to use the comm that is best fit
     # to handle the provided host based on the current routing table.
     if server and localhost
-      return Rex::Socket::SwitchBoard.best_comm(localhost)
+      best_comm = Rex::Socket::SwitchBoard.best_comm(localhost)
     elsif peerhost
-      return Rex::Socket::SwitchBoard.best_comm(peerhost)
+      best_comm =  Rex::Socket::SwitchBoard.best_comm(peerhost)
     end
 
-    Rex::Socket::Comm::Local
+    best_comm || Rex::Socket::Comm::Local
   end
 
   # The context hash that was passed in to the structure.  (default: {})
