@@ -77,45 +77,33 @@ class Rex::Socket::Parameters
   #   retried.
   # @option hash [Fixnum] 'Timeout' The number of seconds before a connection
   #   should time out
-  def initialize(hash)
+  def initialize(hash = {})
     if (hash['PeerHost'])
       self.peerhost = hash['PeerHost']
     elsif (hash['PeerAddr'])
       self.peerhost = hash['PeerAddr']
-    else
-      self.peerhost = nil
     end
 
     if (hash['LocalHost'])
       self.localhost = hash['LocalHost']
     elsif (hash['LocalAddr'])
       self.localhost = hash['LocalAddr']
-    else
-      self.localhost = '0.0.0.0'
     end
 
     if (hash['PeerPort'])
       self.peerport = hash['PeerPort'].to_i
-    else
-      self.peerport = 0
     end
 
     if (hash['LocalPort'])
       self.localport = hash['LocalPort'].to_i
-    else
-      self.localport = 0
     end
 
     if (hash['Bare'])
       self.bare = hash['Bare']
-    else
-      self.bare = false
     end
 
     if (hash['SSL'] and hash['SSL'].to_s =~ /^(t|y|1)/i)
       self.ssl = true
-    else
-      self.ssl = false
     end
 
     if hash['SSLContext']
@@ -179,33 +167,16 @@ class Rex::Socket::Parameters
     # The protocol this socket will be using
     if (hash['Proto'])
       self.proto = hash['Proto'].downcase
-    else
-      self.proto = 'tcp'
     end
 
     # Whether or not the socket should be a server
-    self.server    = hash['Server'] || false
+    self.server    = hash['Server']
 
     # The communication subsystem to use to create the socket
     self.comm      = hash['Comm']
 
     # The context that was passed in, if any.
-    self.context   = hash['Context'] || {}
-
-    # If no comm was supplied, try to use the comm that is best fit to
-    # handle the provided host based on the current routing table.
-    if( self.server )
-      if (self.comm == nil and self.localhost)
-        self.comm  = Rex::Socket::SwitchBoard.best_comm(self.localhost)
-      end
-    else
-      if (self.comm == nil and self.peerhost)
-        self.comm  = Rex::Socket::SwitchBoard.best_comm(self.peerhost)
-      end
-    end
-
-    # If we still haven't found a comm, we default to the local comm.
-    self.comm      = Rex::Socket::Comm::Local if (self.comm == nil)
+    self.context   = hash['Context']
 
     # If we are a UDP server, turn off the server flag as it was only set when
     # creating the UDP socket in order to avail of the switch board above.
@@ -216,19 +187,29 @@ class Rex::Socket::Parameters
     # The number of connection retries to make (client only)
     if hash['Retries']
       self.retries = hash['Retries'].to_i
-    else
-      self.retries = 0
     end
 
     # The number of seconds before a connect attempt times out (client only)
     if hash['Timeout']
       self.timeout = hash['Timeout'].to_i
-    else
-      self.timeout = 5
     end
 
     # Whether to force IPv6 addressing
-    self.v6        = hash['IPv6'] || false
+    self.v6        = hash['IPv6']
+  end
+
+  def merge(other)
+    self.dup.merge!(other)
+  end
+
+  def merge!(other)
+    other = self.class.new(other) if other.is_a? Hash
+
+    other.instance_variables.each do |name|
+      value = other.instance_variable_get(name)
+      instance_variable_set(name, value) unless value.nil?
+    end
+    self
   end
 
   ##
@@ -294,7 +275,6 @@ class Rex::Socket::Parameters
     return v6
   end
 
-
   ##
   #
   # Attributes
@@ -308,50 +288,94 @@ class Rex::Socket::Parameters
 
   # The remote port.  Equivalent to the PeerPort parameter hash key.
   # @return [Fixnum]
-  attr_accessor :peerport
+  attr_writer :peerport
+  def peerport
+    @peerport || 0
+  end
 
   # The local host.  Equivalent to the LocalHost parameter hash key.
   # @return [String]
-  attr_accessor :localhost
+  attr_writer :localhost
+  def localhost
+    @localhost || '0.0.0.0'
+  end
 
   # The local port.  Equivalent to the LocalPort parameter hash key.
   # @return [Fixnum]
-  attr_accessor :localport
+  attr_writer :localport
+  def localport
+    @localport || 0
+  end
 
   # The protocol to to use, such as TCP.  Equivalent to the Proto parameter
   # hash key.
   # @return [String]
-  attr_accessor :proto
+  attr_writer :proto
+  def proto
+    @proto || 'tcp'
+  end
 
   # Whether or not this is a server.  Equivalent to the Server parameter
   # hash key.
   # @return [Bool]
-  attr_accessor :server
+  attr_writer :server
+  def server
+    @server || false
+  end
 
   # The {Comm} instance that should be used to create the underlying socket.
   # @return [Comm]
-  attr_accessor :comm
+  attr_writer :comm
+  def comm
+    return @comm unless @comm.nil?
+
+    best_comm = nil
+    # If no comm was explicitly specified, try to use the comm that is best fit
+    # to handle the provided host based on the current routing table.
+    if server and localhost
+      best_comm = Rex::Socket::SwitchBoard.best_comm(localhost)
+    elsif peerhost
+      best_comm =  Rex::Socket::SwitchBoard.best_comm(peerhost)
+    end
+
+    best_comm || Rex::Socket::Comm::Local
+  end
 
   # The context hash that was passed in to the structure.  (default: {})
   # @return [Hash]
-  attr_accessor :context
+  attr_writer :context
+  def context
+    @context || {}
+  end
 
   # The number of attempts that should be made.
   # @return [Fixnum]
-  attr_accessor :retries
+  attr_writer :retries
+  def retries
+    @retries || 0
+  end
 
   # The number of seconds before a connection attempt should time out.
   # @return [Fixnum]
-  attr_accessor :timeout
+  attr_writer :timeout
+  def timeout
+    @timeout || 5
+  end
 
   # Whether or not this is a bare (non-extended) socket instance that should
   # be created.
   # @return [Bool]
-  attr_accessor :bare
+  attr_writer :bare
+  def bare
+    @comm || false
+  end
 
   # Whether or not SSL should be used to wrap the connection.
   # @return [Bool]
-  attr_accessor :ssl
+  attr_writer :ssl
+  def ssl
+    @ssl || false
+  end
 
   # Pre configured SSL Context to use
   # @return [OpenSSL::SSL::SSLContext]
@@ -384,21 +408,26 @@ class Rex::Socket::Parameters
   # The client SSL certificate
   #
   attr_accessor :ssl_client_cert
+
   #
   # The client SSL key
   #
   attr_accessor :ssl_client_key
+
   #
   # SSL certificate verification mode for SSL context
   attr_accessor :ssl_verify_mode
+
   #
   # Whether we should use IPv6
   # @return [Bool]
-  attr_accessor :v6
-
+  attr_writer :v6
+  def v6
+    @v6 || false
+  end
 
   # List of proxies to use
-  # @return [String]
+  # @return [Array]
   attr_accessor :proxies
 
   alias peeraddr  peerhost
