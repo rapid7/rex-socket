@@ -61,6 +61,11 @@ module  Rex::Socket::TcpServer
 
       t.peerhost = pn[1]
       t.peerport = pn[2]
+
+      ln = t.getlocalname
+
+      t.localhost = ln[1]
+      t.localport = ln[2]
     end
 
     t
