@@ -732,14 +732,19 @@ module Socket
   end
 
   #
-  # Wrapper around getsockname
+  # Wrapper around getsockname that stores the local address and local port values.
   #
   def getlocalname
-    getsockname
+    if self.localhost.nil? && self.localport.nil?
+      _, self.localhost, self.localport = getsockname
+    end
+
+    family = Socket.is_ipv4?(self.localhost) ? ::Socket::AF_INET : ::Socket::AF_INET6
+    [family, self.localhost, self.localport]
   end
 
   #
-  # Return peer connection information.
+  # Returns peer connection information as an array.
   #
   def getpeername_as_array
     peer_name = nil
