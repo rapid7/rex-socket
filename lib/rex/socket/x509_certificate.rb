@@ -28,7 +28,9 @@ class X509Certificate
 
     certs = []
     ssl_cert.scan(/-----BEGIN\s*[^\-]+-----+\r?\n[^\-]*-----END\s*[^\-]+-----\r?\n?/nm).each do |pem|
-      if pem =~ /PRIVATE KEY/
+      if pem =~ /EC PRIVATE KEY/
+        key = OpenSSL::PKey::EC.new(pem)
+      elsif pem =~ /PRIVATE KEY/
         key = OpenSSL::PKey::RSA.new(pem)
       elsif pem =~ /CERTIFICATE/
         certs << OpenSSL::X509::Certificate.new(pem)
