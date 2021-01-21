@@ -73,7 +73,7 @@ class RangeWalker
   # @param parseme [String]
   # @return [self]
   # @return [false] if +parseme+ cannot be parsed
-  def parse(parseme)
+  def parse(parseme, resolver: -> hostname { Rex::Socket.getaddresses(hostname) })
     return nil if not parseme
     ranges = []
     parseme.split(', ').map{ |a| a.split(' ') }.flatten.each do |arg|
@@ -152,7 +152,7 @@ class RangeWalker
         # Then it's a domain name and we should send it on to addr_atoi
         # unmolested to force a DNS lookup.
         begin
-          ranges += Rex::Socket.addr_atoi_list(arg).map { |a| Range.new(a, a, opts) }
+          ranges += resolver.call(arg).map{ |addr| Host.new(addr, arg, opts) }
         rescue Resolv::ResolvError, ::SocketError, Errno::ENOENT
           return false
         end
@@ -488,5 +488,21 @@ class Range
   end
 end
 
+# A single host
+class Host < Range
+  attr_accessor :hostname
+
+  def initialize(address, hostname=nil, options=nil)
+    address = Rex::Socket.addr_atoi(address) if address.is_a? String
+
+    super(address, address, options)
+    @hostname = hostname
+  end
+
+  def address
+    Rex::Socket.addr_itoa(@start)
+  end
+
+end
 end
 end
