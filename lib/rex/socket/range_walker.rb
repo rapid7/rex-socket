@@ -93,7 +93,7 @@ class RangeWalker
 
       # Handle IPv4 CIDR
       elsif arg.include?("/")
-        return false if (new_ranges = parse_ipv4_cidr(arg)) == nil
+        return false if (new_ranges = parse_ipv4_cidr(arg, resolver)) == nil
 
       # Handle hostnames
       elsif arg =~ /[^-0-9,.*]/
@@ -365,7 +365,7 @@ class RangeWalker
 
   def parse_hostname(arg, resolver)
     begin
-      ranges = resolver.call(arg).map{ |addr| Host.new(addr, arg) }
+      ranges = resolver.call(arg).map { |addr| Host.new(addr, arg) }
     rescue Resolv::ResolvError, ::SocketError, Errno::ENOENT
       return
     end
@@ -373,31 +373,29 @@ class RangeWalker
     ranges
   end
 
-  def parse_ipv4_cidr(arg)
+  def parse_ipv4_cidr(arg, resolver)
     # Then it's CIDR notation and needs special case
     return if !valid_cidr_chars?(arg)
 
     ip_part, mask_part = arg.split("/")
     return false unless (0..32).include? mask_part.to_i
     if ip_part =~ /^\d{1,3}(\.\d{1,3}){1,3}$/
-      return unless ip_part =~ Rex::Socket::MATCH_IPV4
+      return unless Rex::Socket.is_ipv4?(ip_part)
     end
 
     begin
-      # todo: this needs to use a custom resolver
-      Rex::Socket.getaddress(ip_part) # This allows for "www.metasploit.com/24" which is fun.
+      hosts = resolver.call(ip_part).select { |addr| Rex::Socket.is_ipv4?(addr) } # drop non-IPv4 addresses
     rescue Resolv::ResolvError, ::SocketError, Errno::ENOENT
       return # Can't resolve the ip_part, so bail.
     end
 
-    range = expand_cidr(arg)
-    return unless range
-    [range]
+    hosts.map { |addr| expand_cidr("#{addr}/#{mask_part}") }
   end
 
   def parse_ipv4_ranges(arg)
-    return unless arg =~ MATCH_IPV4_RANGE
     # Note, this will /not/ deal with DNS names, or the fancy/obscure 10...1-10...2
+    return unless arg =~ MATCH_IPV4_RANGE
+
     begin
       start, stop = Rex::Socket.addr_atoi($1), Rex::Socket.addr_atoi($2)
       return if start > stop # The end is greater than the beginning.
