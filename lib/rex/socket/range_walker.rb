@@ -41,11 +41,11 @@ class RangeWalker
   # Initializes a walker instance using the supplied range
   #
   # @param parseme [RangeWalker,String]
-  def initialize(parseme)
+  def initialize(parseme, resolver: nil)
     if parseme.is_a? RangeWalker
       @ranges = parseme.ranges.dup
     else
-      @ranges = parse(parseme)
+      @ranges = parse(parseme, resolver: resolver)
     end
     reset
   end
@@ -131,11 +131,12 @@ class RangeWalker
     self
   end
 
-  # Returns the next IP address.
+  # Returns the next host in the range.
   #
-  # @return [String] The next address in the range
-  def next_ip
+  # @return [String] The next host in the range
+  def next_host
     return false if not valid?
+
     if (@curr_addr > @ranges[@curr_range_index].stop)
       # Then we are at the end of this range. Grab the next one.
 
@@ -146,14 +147,26 @@ class RangeWalker
 
       @curr_addr = @ranges[@curr_range_index].start
     end
-    addr = Rex::Socket.addr_itoa(@curr_addr, @ranges[@curr_range_index].ipv6?)
 
-    if @ranges[@curr_range_index].options[:scope_id]
-      addr = addr + '%' + @ranges[@curr_range_index].options[:scope_id]
+    range = @ranges[@curr_range_index]
+    addr = Rex::Socket.addr_itoa(@curr_addr, range.ipv6?)
+
+    if range.options[:scope_id]
+      addr = addr + '%' + range.options[:scope_id]
     end
 
+    hostname = range.is_a?(Host) ? range.hostname : nil
+
     @curr_addr += 1
-    return addr
+    return { address: addr, hostname: hostname }
+  end
+
+  # Returns the next IP address.
+  #
+  # @return [String] The next address in the range
+  def next_ip
+    return nil if (host = next_host).nil?
+    host[:address]
   end
 
   alias :next :next_ip
@@ -207,6 +220,15 @@ class RangeWalker
   def each(&block)
     while (ip = next_ip)
       block.call(ip)
+    end
+    reset
+
+    self
+  end
+
+  def each_hash(&block)
+    while (host_hash = next_host)
+      block.call(host_hash)
     end
     reset
 
