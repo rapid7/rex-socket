@@ -186,14 +186,12 @@ module Socket
       return [hostname]
     end
 
-    res = ::Socket.gethostbyname(hostname)
-    return [] if not res
+    res = ::Addrinfo.getaddrinfo(hostname, 0, ::Socket::AF_UNSPEC, ::Socket::SOCK_STREAM)
 
-    # Shift the first three elements out, leaving just the list of
-    # addresses
-    res.shift # name
-    res.shift # alias hostnames
-    res.shift # address_family
+    res.map! do |address_info|
+      address_info.ip_address
+    end
+    return [] if not res
 
     # Rubinius has a bug where gethostbyname returns dotted quads instead of
     # NBO, but that's what we want anyway, so just short-circuit here.
@@ -228,7 +226,12 @@ module Socket
       host, _ = host.split('%', 2)
     end
 
-    ::Socket.gethostbyname(host)
+    res = ::Addrinfo.getaddrinfo(host, 0, ::Socket::AF_UNSPEC, ::Socket::SOCK_STREAM)
+    res.map! do |address_info|
+      address_info.ip_address
+    end
+
+    res
   end
 
   #
@@ -260,14 +263,17 @@ module Socket
   # Resolves a host to raw network-byte order.
   #
   def self.resolv_nbo(host)
-    self.gethostbyname( Rex::Socket.getaddress(host, true) )[3]
+    ip_address = Rex::Socket.getaddress(host)
+    IPAddr.new(ip_address).hton
   end
 
   #
   # Resolves a host to raw network-byte order.
   #
   def self.resolv_nbo_list(host)
-    Rex::Socket.getaddresses(host).map{|addr| self.gethostbyname(addr)[3] }
+    Rex::Socket.getaddresses(host).map do |addresses|
+      IPAddr.new(addresses).hton
+    end
   end
 
   #
