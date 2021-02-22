@@ -174,10 +174,9 @@ module Socket
   end
 
   #
-  # Wrapper for +::Socket.gethostbyname+ that takes special care to see if the
-  # supplied address is already an ASCII IP address.  This is necessary to
-  # prevent blocking while waiting on a DNS reverse lookup when we already
-  # have what we need.
+  # ::Addrinfo.getaddrinfo checks to see if the supplied address is already
+  # an ASCII IP address.  This is necessary to prevent blocking while waiting
+  # on a DNS reverse lookup when we already have what we need.
   #
   # @param hostname [String] A hostname or ASCII IP address
   # @return [Array<String>]
@@ -192,19 +191,6 @@ module Socket
       address_info.ip_address
     end
     return [] if not res
-
-    # Rubinius has a bug where gethostbyname returns dotted quads instead of
-    # NBO, but that's what we want anyway, so just short-circuit here.
-    if res[0] =~ MATCH_IPV4 || res[0] =~ MATCH_IPV6
-      unless accept_ipv6
-        res.reject!{ |ascii| ascii =~ MATCH_IPV6 }
-      end
-    else
-      unless accept_ipv6
-        res.reject!{ |nbo| nbo.length != 4 }
-      end
-      res.map!{ |nbo| self.addr_ntoa(nbo) }
-    end
 
     res
   end
