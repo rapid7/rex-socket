@@ -105,16 +105,6 @@ RSpec.describe Rex::Socket do
       it "should return the first ASCII address" do
         expect(subject).to eq "fe80::1"
       end
-
-      context "with rubinius' bug returning ASCII addresses" do
-      let(:response_afamily) { Socket::AF_INET }
-      let(:response_addresses) { ["1.1.1.1", "2.2.2.2"] }
-
-      it { is_expected.to be_a(String) }
-      it "should return the first ASCII address" do
-        expect(subject).to eq "1.1.1.1"
-      end
-      end
     end
   end
 
