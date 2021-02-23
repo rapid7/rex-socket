@@ -4,7 +4,8 @@ require 'rex/socket/range_walker'
 RSpec.describe Rex::Socket::RangeWalker do
 
   let(:args) { "::1" }
-  subject(:walker) { described_class.new(args) }
+  let(:resolver) { nil }
+  subject(:walker) { described_class.new(args, resolver: resolver) }
 
   it { is_expected.to respond_to(:length) }
   it { is_expected.to respond_to(:valid?) }
@@ -16,12 +17,25 @@ RSpec.describe Rex::Socket::RangeWalker do
       let(:args) { "localhost" }
       it { is_expected.to be_valid }
       it { expect(subject.length).to be >= 1 }
+      let(:host) { subject.next_host }
+      it { expect(host).to have_key(:hostname) }
+      it { expect(host[:hostname]).to eq('localhost') }
+      it { expect(host).to have_key(:address) }
     end
 
     context "with a hostname and CIDR" do
       let(:args) { "localhost/24" }
       it { is_expected.to be_valid }
       it { expect(subject.length).to eq(256) }
+    end
+
+    context "with a hostname and resolver" do
+      ip_address = "127.#{rand(1..255)}.#{rand(1..255)}.#{rand(1..255)}"
+      let(:args) { "localhost" }
+      let(:resolver) { -> hostname { [ ip_address ] } }
+      it { is_expected.to be_valid }
+      it { expect(subject.length).to eq(1) }
+      it { expect(subject.next).to eq(ip_address) }
     end
 
     context "with an invalid hostname" do
