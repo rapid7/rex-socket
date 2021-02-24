@@ -41,11 +41,11 @@ class RangeWalker
   # Initializes a walker instance using the supplied range
   #
   # @param parseme [RangeWalker,String]
-  def initialize(parseme, resolver: nil)
+  def initialize(parseme)
     if parseme.is_a? RangeWalker
       @ranges = parseme.ranges.dup
     else
-      @ranges = parse(parseme, resolver: resolver)
+      @ranges = parse(parseme)
     end
     reset
   end
@@ -76,9 +76,8 @@ class RangeWalker
   # @param parseme [String]
   # @return [self]
   # @return [false] if +parseme+ cannot be parsed
-  def parse(parseme, resolver: nil)
-    return nil if not parseme
-    resolver = resolver || -> hostname { Rex::Socket.getaddresses(hostname) }
+  def parse(parseme)
+    return nil unless parseme
 
     ranges = []
     parseme.split(', ').map{ |a| a.split(' ') }.flatten.each do |arg|
@@ -93,11 +92,11 @@ class RangeWalker
 
       # Handle IPv4 CIDR
       elsif arg.include?("/")
-        return false if (new_ranges = parse_ipv4_cidr(arg, resolver)) == nil
+        return false if (new_ranges = parse_ipv4_cidr(arg)) == nil
 
       # Handle hostnames
       elsif arg =~ /[^-0-9,.*]/
-        return false if (new_ranges = parse_hostname(arg, resolver)) == nil
+        return false if (new_ranges = parse_hostname(arg)) == nil
 
       # Handle IPv4 ranges
       elsif arg =~ MATCH_IPV4_RANGE
@@ -385,9 +384,9 @@ class RangeWalker
 
   protected
 
-  def parse_hostname(arg, resolver)
+  def parse_hostname(arg)
     begin
-      ranges = resolver.call(arg).map { |addr| Host.new(addr, arg) }
+      ranges = Rex::Socket.getaddresses(arg).map { |addr| Host.new(addr, arg) }
     rescue Resolv::ResolvError, ::SocketError, Errno::ENOENT
       return
     end
@@ -395,7 +394,7 @@ class RangeWalker
     ranges
   end
 
-  def parse_ipv4_cidr(arg, resolver)
+  def parse_ipv4_cidr(arg)
     # Then it's CIDR notation and needs special case
     return if !valid_cidr_chars?(arg)
 
@@ -406,7 +405,7 @@ class RangeWalker
     end
 
     begin
-      hosts = resolver.call(ip_part).select { |addr| Rex::Socket.is_ipv4?(addr) } # drop non-IPv4 addresses
+      hosts = Rex::Socket.getaddresses(ip_part).select { |addr| Rex::Socket.is_ipv4?(addr) } # drop non-IPv4 addresses
     rescue Resolv::ResolvError, ::SocketError, Errno::ENOENT
       return # Can't resolve the ip_part, so bail.
     end
