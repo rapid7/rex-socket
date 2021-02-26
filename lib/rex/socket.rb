@@ -192,15 +192,8 @@ module Socket
       address_info.ip_address
     end
 
-    if res[0] =~ MATCH_IPV4 || res[0] =~ MATCH_IPV6
-      unless accept_ipv6
-        res.reject!{ |ascii| ascii =~ MATCH_IPV6 }
-      end
-    else
-      unless accept_ipv6
-        res.reject!{ |nbo| nbo.length != 4 }
-      end
-      res.map!{ |nbo| self.addr_ntoa(nbo) }
+    unless accept_ipv6
+      res.reject! { |ascii| ascii =~ MATCH_IPV6 }
     end
 
     res
@@ -212,7 +205,9 @@ module Socket
   # not occur.  This is done in order to prevent delays, such as would occur
   # on Windows.
   #
+  # @deprecated Please use {#getaddress}, {#resolv_nbo}, or similar instead.
   def self.gethostbyname(host)
+    warn "NOTE: #{self}.#{__method__} is deprecated, use getaddress, resolve_nbo, or similar instead. It will be removed in the next Major version"
     if is_ipv4?(host)
       return [ host, [], 2, host.split('.').map{ |c| c.to_i }.pack("C4") ]
     end
@@ -223,12 +218,7 @@ module Socket
       host, _ = host.split('%', 2)
     end
 
-    res = ::Addrinfo.getaddrinfo(host, 0, ::Socket::AF_UNSPEC, ::Socket::SOCK_STREAM)
-    res.map! do |address_info|
-      address_info.ip_address
-    end
-
-    res
+    ::Socket.gethostbyname(host)
   end
 
   #
@@ -259,8 +249,8 @@ module Socket
   #
   # Resolves a host to raw network-byte order.
   #
-  def self.resolv_nbo(host)
-    ip_address = Rex::Socket.getaddress(host)
+  def self.resolv_nbo(host, accepts_ipv6 = true)
+    ip_address = Rex::Socket.getaddress(host, accepts_ipv6)
     IPAddr.new(ip_address).hton
   end
 

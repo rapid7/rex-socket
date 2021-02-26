@@ -110,7 +110,8 @@ RSpec.describe Rex::Socket do
 
   describe '.getaddresses' do
 
-    subject { described_class.getaddresses('whatever') }
+    let(:accepts_ipv6) { true }
+    subject { described_class.getaddresses('whatever', accepts_ipv6) }
 
     before(:example) do
       allow(Addrinfo).to receive(:getaddrinfo).and_return(response_addresses.map {|address| Addrinfo.ip(address)})
@@ -129,14 +130,26 @@ RSpec.describe Rex::Socket do
     end
 
     context 'when ::Addrinfo.getaddrinfo returns IPv6 responses' do
-      let(:response_afamily) { Socket::AF_INET6 }
-      let(:response_addresses) { ["fe80::1", "fe80::2"] }
+      context "when accepts_ipv6 is true" do
+        let(:accepts_ipv6) { true }
+        let(:response_afamily) { Socket::AF_INET6 }
+        let(:response_addresses) { ["fe80::1", "fe80::2"] }
 
-      it { is_expected.to be_an(Array) }
-      it { expect(subject.size).to eq(2) }
-      it "should return the ASCII addresses" do
-        expect(subject).to include("fe80::1")
-        expect(subject).to include("fe80::2")
+        it { is_expected.to be_an(Array) }
+        it { expect(subject.size).to eq(2) }
+        it "should return the ASCII addresses" do
+          expect(subject).to include("fe80::1")
+          expect(subject).to include("fe80::2")
+        end
+      end
+
+      context "when accepts_ipv6 is false" do
+        let(:accepts_ipv6) { false }
+        let(:response_afamily) { Socket::AF_INET6 }
+        let(:response_addresses) { ["fe80::1", "fe80::2"] }
+
+        it { is_expected.to be_an(Array) }
+        it { expect(subject).to be_empty }
       end
     end
   end
