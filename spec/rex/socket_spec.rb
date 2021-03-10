@@ -84,12 +84,12 @@ RSpec.describe Rex::Socket do
     subject { described_class.getaddress('whatever') }
 
     before(:example) do
-      expect(Socket).to receive(:gethostbyname).and_return(['name', ['aliases'], response_afamily, *response_addresses])
+      allow(Addrinfo).to receive(:getaddrinfo).and_return(response_addresses.map {|address| Addrinfo.ip(address)})
     end
 
-    context 'when ::Socket.gethostbyname returns IPv4 responses' do
+    context 'when ::Addrinfo.getaddrinfo returns IPv4 responses' do
       let(:response_afamily) { Socket::AF_INET }
-      let(:response_addresses) { ["\x01\x01\x01\x01", "\x02\x02\x02\x02"] }
+      let(:response_addresses) { ["1.1.1.1", "2.2.2.2"] }
 
       it { is_expected.to be_a(String) }
       it "should return the first ASCII address" do
@@ -97,61 +97,27 @@ RSpec.describe Rex::Socket do
       end
     end
 
-    context 'when ::Socket.gethostbyname returns IPv6 responses' do
+    context 'when ::Addrinfo.getaddrinfo returns IPv6 responses' do
       let(:response_afamily) { Socket::AF_INET6 }
-      let(:response_addresses) { ["\xfe\x80"+("\x00"*13)+"\x01", "\xfe\x80"+("\x00"*13)+"\x02"] }
+      let(:response_addresses) { ["fe80::1", "fe80::2"] }
 
       it { is_expected.to be_a(String) }
       it "should return the first ASCII address" do
         expect(subject).to eq "fe80::1"
       end
     end
-
-    context "with rubinius' bug returning ASCII addresses" do
-      let(:response_afamily) { Socket::AF_INET }
-      let(:response_addresses) { ["1.1.1.1", "2.2.2.2"] }
-
-      it { is_expected.to be_a(String) }
-      it "should return the first ASCII address" do
-        expect(subject).to eq "1.1.1.1"
-      end
-
-    end
   end
 
   describe '.getaddresses' do
 
-    subject { described_class.getaddresses('whatever') }
+    let(:accepts_ipv6) { true }
+    subject { described_class.getaddresses('whatever', accepts_ipv6) }
 
     before(:example) do
-      expect(Socket).to receive(:gethostbyname).and_return(['name', ['aliases'], response_afamily, *response_addresses])
+      allow(Addrinfo).to receive(:getaddrinfo).and_return(response_addresses.map {|address| Addrinfo.ip(address)})
     end
 
-    context 'when ::Socket.gethostbyname returns IPv4 responses' do
-      let(:response_afamily) { Socket::AF_INET }
-      let(:response_addresses) { ["\x01\x01\x01\x01", "\x02\x02\x02\x02"] }
-
-      it { is_expected.to be_an(Array) }
-      it { expect(subject.size).to eq(2) }
-      it "should return the ASCII addresses" do
-        expect(subject).to include("1.1.1.1")
-        expect(subject).to include("2.2.2.2")
-      end
-    end
-
-    context 'when ::Socket.gethostbyname returns IPv6 responses' do
-      let(:response_afamily) { Socket::AF_INET6 }
-      let(:response_addresses) { ["\xfe\x80"+("\x00"*13)+"\x01", "\xfe\x80"+("\x00"*13)+"\x02"] }
-
-      it { is_expected.to be_an(Array) }
-      it { expect(subject.size).to eq(2) }
-      it "should return the ASCII addresses" do
-        expect(subject).to include("fe80::1")
-        expect(subject).to include("fe80::2")
-      end
-    end
-
-    context "with rubinius' bug returning ASCII addresses" do
+    context 'when ::Addrinfo.getaddrinfo returns IPv4 responses' do
       let(:response_afamily) { Socket::AF_INET }
       let(:response_addresses) { ["1.1.1.1", "2.2.2.2"] }
 
@@ -161,7 +127,30 @@ RSpec.describe Rex::Socket do
         expect(subject).to include("1.1.1.1")
         expect(subject).to include("2.2.2.2")
       end
+    end
 
+    context 'when ::Addrinfo.getaddrinfo returns IPv6 responses' do
+      context "when accepts_ipv6 is true" do
+        let(:accepts_ipv6) { true }
+        let(:response_afamily) { Socket::AF_INET6 }
+        let(:response_addresses) { ["fe80::1", "fe80::2"] }
+
+        it { is_expected.to be_an(Array) }
+        it { expect(subject.size).to eq(2) }
+        it "should return the ASCII addresses" do
+          expect(subject).to include("fe80::1")
+          expect(subject).to include("fe80::2")
+        end
+      end
+
+      context "when accepts_ipv6 is false" do
+        let(:accepts_ipv6) { false }
+        let(:response_afamily) { Socket::AF_INET6 }
+        let(:response_addresses) { ["fe80::1", "fe80::2"] }
+
+        it { is_expected.to be_an(Array) }
+        it { expect(subject).to be_empty }
+      end
     end
   end
 

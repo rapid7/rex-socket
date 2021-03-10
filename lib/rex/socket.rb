@@ -174,7 +174,7 @@ module Socket
   end
 
   #
-  # Wrapper for +::Socket.gethostbyname+ that takes special care to see if the
+  # Wrapper for +::Addrinfo.getaddrinfo+ that takes special care to see if the
   # supplied address is already an ASCII IP address.  This is necessary to
   # prevent blocking while waiting on a DNS reverse lookup when we already
   # have what we need.
@@ -186,26 +186,14 @@ module Socket
       return [hostname]
     end
 
-    res = ::Socket.gethostbyname(hostname)
-    return [] if not res
+    res = ::Addrinfo.getaddrinfo(hostname, 0, ::Socket::AF_UNSPEC, ::Socket::SOCK_STREAM)
 
-    # Shift the first three elements out, leaving just the list of
-    # addresses
-    res.shift # name
-    res.shift # alias hostnames
-    res.shift # address_family
+    res.map! do |address_info|
+      address_info.ip_address
+    end
 
-    # Rubinius has a bug where gethostbyname returns dotted quads instead of
-    # NBO, but that's what we want anyway, so just short-circuit here.
-    if res[0] =~ MATCH_IPV4 || res[0] =~ MATCH_IPV6
-      unless accept_ipv6
-        res.reject!{ |ascii| ascii =~ MATCH_IPV6 }
-      end
-    else
-      unless accept_ipv6
-        res.reject!{ |nbo| nbo.length != 4 }
-      end
-      res.map!{ |nbo| self.addr_ntoa(nbo) }
+    unless accept_ipv6
+      res.reject! { |ascii| ascii =~ MATCH_IPV6 }
     end
 
     res
@@ -217,7 +205,9 @@ module Socket
   # not occur.  This is done in order to prevent delays, such as would occur
   # on Windows.
   #
+  # @deprecated Please use {#getaddress}, {#resolv_nbo}, or similar instead.
   def self.gethostbyname(host)
+    warn "NOTE: #{self}.#{__method__} is deprecated, use getaddress, resolve_nbo, or similar instead. It will be removed in the next Major version"
     if is_ipv4?(host)
       return [ host, [], 2, host.split('.').map{ |c| c.to_i }.pack("C4") ]
     end
@@ -259,15 +249,18 @@ module Socket
   #
   # Resolves a host to raw network-byte order.
   #
-  def self.resolv_nbo(host)
-    self.gethostbyname( Rex::Socket.getaddress(host, true) )[3]
+  def self.resolv_nbo(host, accepts_ipv6 = true)
+    ip_address = Rex::Socket.getaddress(host, accepts_ipv6)
+    IPAddr.new(ip_address).hton
   end
 
   #
   # Resolves a host to raw network-byte order.
   #
   def self.resolv_nbo_list(host)
-    Rex::Socket.getaddresses(host).map{|addr| self.gethostbyname(addr)[3] }
+    Rex::Socket.getaddresses(host).map do |addresses|
+      IPAddr.new(addresses).hton
+    end
   end
 
   #
