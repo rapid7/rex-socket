@@ -216,7 +216,7 @@ class RangeWalker
   # {#next_ip}
   #
   # @return [self]
-  def each(&block)
+  def each_ip(&block)
     while (ip = next_ip)
       block.call(ip)
     end
@@ -225,7 +225,9 @@ class RangeWalker
     self
   end
 
-  def each_hash(&block)
+  alias each each_ip
+
+  def each_host(&block)
     while (host_hash = next_host)
       block.call(host_hash)
     end
