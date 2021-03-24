@@ -132,7 +132,7 @@ class RangeWalker
 
   # Returns the next host in the range.
   #
-  # @return [String] The next host in the range
+  # @return [Hash<Symbol, String>] The next host in the range
   def next_host
     return false if not valid?
 
