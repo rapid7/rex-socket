@@ -276,7 +276,7 @@ protected
   # Initializes the underlying stuff.
   #
   def _init
-    if (@_initialized != true)
+    unless @_initialized
       @_initialized = true
       self.routes   = Array.new
       self.mutex    = Mutex.new

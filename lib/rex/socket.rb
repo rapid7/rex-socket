@@ -14,6 +14,8 @@ module Rex
 ###
 module Socket
 
+  LogSource = 'rex-socket'
+
   module Comm
   end
 
@@ -745,7 +747,7 @@ module Socket
       peer_name = Socket.from_sockaddr(self.getpeername)
     rescue ::Errno::EINVAL => e
       # Ruby's getpeername method may call rb_sys_fail("getpeername(2)")
-      elog("#{e.message} (#{e.class})#{e.backtrace * "\n"}\n", 'core', LEV_3)
+      elog("#{e.message} (#{e.class})#{e.backtrace * "\n"}\n", LogSource, LEV_3)
     end
 
     return peer_name

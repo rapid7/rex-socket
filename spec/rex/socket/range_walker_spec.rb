@@ -168,15 +168,33 @@ RSpec.describe Rex::Socket::RangeWalker do
     end
   end
 
-  describe '#each' do
+  describe '#each_ip' do
     let(:args) { "10.1.1.1-2,2,3 10.2.2.2" }
 
     it "should yield all ips" do
       got = []
-      walker.each { |ip|
+      walker.each_ip { |ip|
         got.push ip
       }
       expect(got).to eq ["10.1.1.1", "10.1.1.2", "10.1.1.3", "10.2.2.2"]
+    end
+
+  end
+
+  describe '#each_host' do
+    let(:args) { "localhost" }
+
+    it "should yield a host" do
+      got = []
+      walker.each_host { |host|
+        got.push host
+      }
+      expect(got.length).to be > 0
+      host = got[0]
+      expect(host).to have_key(:hostname)
+      expect(host[:hostname]).to eq('localhost')
+      expect(host).to have_key(:address)
+      expect(Rex::Socket.is_ip_addr?(host[:address])).to be true
     end
 
   end

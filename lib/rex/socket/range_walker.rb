@@ -23,6 +23,9 @@ module Socket
 ###
 class RangeWalker
 
+  MATCH_IPV4_RANGE = /^([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})-([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})$/
+  private_constant :MATCH_IPV4_RANGE
+
   # The total number of IPs within the range
   #
   # @return [Fixnum]
@@ -74,108 +77,37 @@ class RangeWalker
   # @return [self]
   # @return [false] if +parseme+ cannot be parsed
   def parse(parseme)
-    return nil if not parseme
+    return nil unless parseme
+
     ranges = []
     parseme.split(', ').map{ |a| a.split(' ') }.flatten.each do |arg|
-      opts = {}
 
       # Handle IPv6 CIDR first
       if arg.include?(':') && arg.include?('/')
-        return false if !valid_cidr_chars?(arg)
+        return false if (new_ranges = parse_ipv6_cidr(arg)) == nil
 
-        ip_part, mask_part = arg.split("/")
-        return false unless (0..128).include? mask_part.to_i
-
-        addr, scope_id = ip_part.split('%')
-        return false unless Rex::Socket.is_ipv6?(addr)
-
-        range = expand_cidr(addr + '/' + mask_part)
-        range.options[:scope_id] = scope_id if scope_id
-        ranges.push(range)
       # Handle plain IPv6 next (support ranges, but not CIDR)
       elsif arg.include?(':')
-        addrs = arg.split('-', 2)
-
-        # Handle a single address
-        if addrs.length == 1
-          addr, scope_id = addrs[0].split('%')
-          opts[:scope_id] = scope_id if scope_id
-          opts[:ipv6] = true
-
-          return false unless Rex::Socket.is_ipv6?(addr)
-          addr = Rex::Socket.addr_atoi(addr)
-          ranges.push(Range.new(addr, addr, opts))
-          next
-        end
-
-        addr1, scope_id = addrs[0].split('%')
-        opts[:scope_id] = scope_id if scope_id
-        opts[:ipv6] = true
-
-        addr2, scope_id = addrs[1].split('%')
-        ( opts[:scope_id] ||= scope_id ) if scope_id
-
-        # Both have to be IPv6 for this to work
-        return false unless (Rex::Socket.is_ipv6?(addr1) && Rex::Socket.is_ipv6?(addr2))
-
-        # Handle IPv6 ranges in the form of 2001::1-2001::10
-        addr1 = Rex::Socket.addr_atoi(addr1)
-        addr2 = Rex::Socket.addr_atoi(addr2)
-
-        ranges.push(Range.new(addr1, addr2, opts))
-        next
+        return false if (new_ranges = parse_ipv6(arg)) == nil
 
       # Handle IPv4 CIDR
       elsif arg.include?("/")
-        # Then it's CIDR notation and needs special case
-        return false if !valid_cidr_chars?(arg)
-        ip_part, mask_part = arg.split("/")
-        return false unless (0..32).include? mask_part.to_i
-        if ip_part =~ /^\d{1,3}(\.\d{1,3}){1,3}$/
-          return false unless ip_part =~ Rex::Socket::MATCH_IPV4
-        end
-        begin
-          Rex::Socket.getaddress(ip_part) # This allows for "www.metasploit.com/24" which is fun.
-        rescue Resolv::ResolvError, ::SocketError, Errno::ENOENT
-          return false # Can't resolve the ip_part, so bail.
-        end
-
-        expanded = expand_cidr(arg)
-        if expanded
-          ranges.push(expanded)
-        else
-          return false
-        end
+        return false if (new_ranges = parse_ipv4_cidr(arg)) == nil
 
       # Handle hostnames
       elsif arg =~ /[^-0-9,.*]/
-        # Then it's a domain name and we should send it on to addr_atoi
-        # unmolested to force a DNS lookup.
-        begin
-          ranges += Rex::Socket.addr_atoi_list(arg).map { |a| Range.new(a, a, opts) }
-        rescue Resolv::ResolvError, ::SocketError, Errno::ENOENT
-          return false
-        end
+        return false if (new_ranges = parse_hostname(arg)) == nil
 
       # Handle IPv4 ranges
-      elsif arg =~ /^([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})-([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})$/
-
+      elsif arg =~ MATCH_IPV4_RANGE
         # Then it's in the format of 1.2.3.4-5.6.7.8
-        # Note, this will /not/ deal with DNS names, or the fancy/obscure 10...1-10...2
-        begin
-          start, stop = Rex::Socket.addr_atoi($1), Rex::Socket.addr_atoi($2)
-          return false if start > stop # The end is greater than the beginning.
-          ranges.push(Range.new(start, stop, opts))
-        rescue Resolv::ResolvError, ::SocketError, Errno::ENOENT
-          return false
-        end
+        return false if (new_ranges = parse_ipv4_ranges(arg)) == nil
+
       else
-        # Returns an array of ranges
-        expanded = expand_nmap(arg)
-        if expanded
-          expanded.each { |r| ranges.push(r) }
-        end
+        new_ranges = expand_nmap(arg)
       end
+
+      ranges += new_ranges
     end
 
     # Remove any duplicate ranges
@@ -198,11 +130,12 @@ class RangeWalker
     self
   end
 
-  # Returns the next IP address.
+  # Returns the next host in the range.
   #
-  # @return [String] The next address in the range
-  def next_ip
+  # @return [Hash<Symbol, String>] The next host in the range
+  def next_host
     return false if not valid?
+
     if (@curr_addr > @ranges[@curr_range_index].stop)
       # Then we are at the end of this range. Grab the next one.
 
@@ -213,14 +146,26 @@ class RangeWalker
 
       @curr_addr = @ranges[@curr_range_index].start
     end
-    addr = Rex::Socket.addr_itoa(@curr_addr, @ranges[@curr_range_index].ipv6?)
 
-    if @ranges[@curr_range_index].options[:scope_id]
-      addr = addr + '%' + @ranges[@curr_range_index].options[:scope_id]
+    range = @ranges[@curr_range_index]
+    addr = Rex::Socket.addr_itoa(@curr_addr, range.ipv6?)
+
+    if range.options[:scope_id]
+      addr = addr + '%' + range.options[:scope_id]
     end
 
+    hostname = range.is_a?(Host) ? range.hostname : nil
+
     @curr_addr += 1
-    return addr
+    return { address: addr, hostname: hostname }
+  end
+
+  # Returns the next IP address.
+  #
+  # @return [String] The next address in the range
+  def next_ip
+    return nil if (host = next_host).nil?
+    host[:address]
   end
 
   alias :next :next_ip
@@ -271,9 +216,20 @@ class RangeWalker
   # {#next_ip}
   #
   # @return [self]
-  def each(&block)
+  def each_ip(&block)
     while (ip = next_ip)
       block.call(ip)
+    end
+    reset
+
+    self
+  end
+
+  alias each each_ip
+
+  def each_host(&block)
+    while (host_hash = next_host)
+      block.call(host_hash)
     end
     reset
 
@@ -430,6 +386,98 @@ class RangeWalker
 
   protected
 
+  def parse_hostname(arg)
+    begin
+      ranges = Rex::Socket.getaddresses(arg).map { |addr| Host.new(addr, arg) }
+    rescue Resolv::ResolvError, ::SocketError, Errno::ENOENT
+      return
+    end
+
+    ranges
+  end
+
+  def parse_ipv4_cidr(arg)
+    # Then it's CIDR notation and needs special case
+    return if !valid_cidr_chars?(arg)
+
+    ip_part, mask_part = arg.split("/")
+    return false unless (0..32).include? mask_part.to_i
+    if ip_part =~ /^\d{1,3}(\.\d{1,3}){1,3}$/
+      return unless Rex::Socket.is_ipv4?(ip_part)
+    end
+
+    begin
+      hosts = Rex::Socket.getaddresses(ip_part).select { |addr| Rex::Socket.is_ipv4?(addr) } # drop non-IPv4 addresses
+    rescue Resolv::ResolvError, ::SocketError, Errno::ENOENT
+      return # Can't resolve the ip_part, so bail.
+    end
+
+    hosts.map { |addr| expand_cidr("#{addr}/#{mask_part}") }
+  end
+
+  def parse_ipv4_ranges(arg)
+    # Note, this will /not/ deal with DNS names, or the fancy/obscure 10...1-10...2
+    return unless arg =~ MATCH_IPV4_RANGE
+
+    begin
+      start, stop = Rex::Socket.addr_atoi($1), Rex::Socket.addr_atoi($2)
+      return if start > stop # The end is greater than the beginning.
+      range = Range.new(start, stop)
+    rescue Resolv::ResolvError, ::SocketError, Errno::ENOENT
+      return
+    end
+
+    [range]
+  end
+
+  def parse_ipv6(arg)
+    opts = {}
+    addrs = arg.split('-', 2)
+
+    # Handle a single address
+    if addrs.length == 1
+      addr, scope_id = addrs[0].split('%')
+      opts[:scope_id] = scope_id if scope_id
+      opts[:ipv6] = true
+
+      return unless Rex::Socket.is_ipv6?(addr)
+      addr = Rex::Socket.addr_atoi(addr)
+      range = Range.new(addr, addr, opts)
+    else
+      addr1, scope_id = addrs[0].split('%')
+      opts[:scope_id] = scope_id if scope_id
+      opts[:ipv6] = true
+
+      addr2, scope_id = addrs[1].split('%')
+      ( opts[:scope_id] ||= scope_id ) if scope_id
+
+      # Both have to be IPv6 for this to work
+      return unless (Rex::Socket.is_ipv6?(addr1) && Rex::Socket.is_ipv6?(addr2))
+
+      # Handle IPv6 ranges in the form of 2001::1-2001::10
+      addr1 = Rex::Socket.addr_atoi(addr1)
+      addr2 = Rex::Socket.addr_atoi(addr2)
+
+       range = Range.new(addr1, addr2, opts)
+    end
+
+    [range]
+  end
+
+  def parse_ipv6_cidr(arg)
+    return if !valid_cidr_chars?(arg)
+
+    ip_part, mask_part = arg.split("/")
+    return unless (0..128).include? mask_part.to_i
+
+    addr, scope_id = ip_part.split('%')
+    return unless Rex::Socket.is_ipv6?(addr)
+
+    range = expand_cidr(addr + '/' + mask_part)
+    range.options[:scope_id] = scope_id if scope_id
+    [range]
+  end
+
   def valid_cidr_chars?(arg)
     return false if arg.include? ',-' # Improper CIDR notation (can't mix with 1,3 or 1-3 style IP ranges)
     return false if arg.scan("/").size > 1 # ..but there are too many slashes
@@ -464,7 +512,7 @@ class Range
   def initialize(start=nil, stop=nil, options=nil)
     @start = start
     @stop = stop
-    @options = options
+    @options = options || {}
   end
 
   # Compare attributes with +other+
@@ -488,5 +536,21 @@ class Range
   end
 end
 
+# A single host
+class Host < Range
+  attr_accessor :hostname
+
+  def initialize(address, hostname=nil, options=nil)
+    address = Rex::Socket.addr_atoi(address) if address.is_a? String
+
+    super(address, address, options)
+    @hostname = hostname
+  end
+
+  def address
+    Rex::Socket.addr_itoa(@start)
+  end
+
+end
 end
 end
