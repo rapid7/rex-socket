@@ -84,27 +84,27 @@ class RangeWalker
 
       # Handle IPv6 CIDR first
       if arg.include?(':') && arg.include?('/')
-        return false if (new_ranges = parse_ipv6_cidr(arg)) == nil
+        return false if (new_ranges = parse_ipv6_cidr(arg)).nil?
 
       # Handle plain IPv6 next (support ranges, but not CIDR)
       elsif arg.include?(':')
-        return false if (new_ranges = parse_ipv6(arg)) == nil
+        return false if (new_ranges = parse_ipv6(arg)).nil?
 
       # Handle IPv4 CIDR
       elsif arg.include?("/")
-        return false if (new_ranges = parse_ipv4_cidr(arg)) == nil
+        return false if (new_ranges = parse_ipv4_cidr(arg)).nil?
 
       # Handle hostnames
       elsif arg =~ /[^-0-9,.*]/
-        return false if (new_ranges = parse_hostname(arg)) == nil
+        return false if (new_ranges = parse_hostname(arg)).nil?
 
       # Handle IPv4 ranges
       elsif arg =~ MATCH_IPV4_RANGE
         # Then it's in the format of 1.2.3.4-5.6.7.8
-        return false if (new_ranges = parse_ipv4_ranges(arg)) == nil
+        return false if (new_ranges = parse_ipv4_ranges(arg)).nil?
 
       else
-        new_ranges = expand_nmap(arg)
+        return false if (new_ranges = expand_nmap(arg)).nil?
       end
 
       ranges += new_ranges
@@ -275,18 +275,16 @@ class RangeWalker
   #
   def expand_nmap(arg)
     # Can't really do anything with IPv6
-    return false if arg.include?(":")
+    return if arg.include?(":")
 
     # nmap calls these errors, but it's hard to catch them with our
     # splitting below, so short-cut them here
-    return false if arg.include?(",-") or arg.include?("-,")
+    return if arg.include?(",-") or arg.include?("-,")
 
     bytes = []
     sections = arg.split('.')
-    if sections.length != 4
-      # Too many or not enough dots
-      return false
-    end
+    return unless sections.length == 4  # Too many or not enough dots
+
     sections.each { |section|
       if section.empty?
         # pretty sure this is an unintentional artifact of the C
@@ -300,7 +298,7 @@ class RangeWalker
         # I think this ought to be 1-254, but this is how nmap does it.
         section = "0-255"
       elsif section.include?("*")
-        return false
+        return
       end
 
       # Break down the sections into ranges like so
@@ -317,18 +315,18 @@ class RangeWalker
           # if the upper bound is empty, stop at 255
           #
           bounds = r.split('-', -1)
-          return false if (bounds.length > 2)
+          return if (bounds.length > 2)
 
           bounds[0] = 0   if bounds[0].nil? or bounds[0].empty?
           bounds[1] = 255 if bounds[1].nil? or bounds[1].empty?
           bounds.map!{|b| b.to_i}
-          return false if bounds[0] > bounds[1]
+          return if bounds[0] > bounds[1]
         else
           # Then it's a single value
           bounds[0] = r.to_i
         end
-        return false if bounds[0] > 255 or (bounds[1] and bounds[1] > 255)
-        return false if bounds[1] and bounds[0] > bounds[1]
+        return if bounds[0] > 255 or (bounds[1] and bounds[1] > 255)
+        return if bounds[1] and bounds[0] > bounds[1]
         if bounds[1]
           bounds[0].upto(bounds[1]) do |i|
             sets.push(i)

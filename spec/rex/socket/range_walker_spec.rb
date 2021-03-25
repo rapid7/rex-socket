@@ -39,7 +39,7 @@ RSpec.describe Rex::Socket::RangeWalker do
       it { is_expected.to be_valid }
     end
 
-    it "should handle single ipv6 addresses" do
+    it "should handle single IPv6 addresses" do
       walker = Rex::Socket::RangeWalker.new("::1")
       expect(walker).to be_valid
       expect(walker.length).to eq 1
@@ -73,7 +73,7 @@ RSpec.describe Rex::Socket::RangeWalker do
       expect(walker.next).to eq "::%lo"
     end
 
-    context "with mulitple ranges" do
+    context "with multiple ranges" do
       let(:args) { "1.1.1.1-2 2.1-2.2.2 3.1-2.1-2.1 " }
       it { is_expected.to be_valid }
       it { expect(subject.length).to eq(8) }
@@ -101,6 +101,11 @@ RSpec.describe Rex::Socket::RangeWalker do
 
     it 'should reject a CIDR range with too many octets' do
       walker = Rex::Socket::RangeWalker.new('192.168.1.2.0/24')
+      expect(walker).not_to be_valid
+    end
+
+    it 'should reject an IPv4 address with too many octets' do
+      walker = Rex::Socket::RangeWalker.new('192.0.2.0.0')
       expect(walker).not_to be_valid
     end
 
