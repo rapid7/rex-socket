@@ -94,19 +94,42 @@ RSpec.describe Rex::Socket::RangeWalker do
       expect(walker).to include("10.1.3.5")
     end
 
-    it 'should reject CIDR ranges with missing octets' do
+    it 'should reject IPv4 CIDR ranges with missing octets' do
       walker = Rex::Socket::RangeWalker.new('192.168/24')
       expect(walker).not_to be_valid
     end
 
-    it 'should reject a CIDR range with too many octets' do
+    it 'should reject IPv6 CIDR ranges with missing octets' do
+      walker = Rex::Socket::RangeWalker.new(':1/24')
+      expect(walker).not_to be_valid
+    end
+
+    it 'should reject an IPv4 CIDR range with too many octets' do
       walker = Rex::Socket::RangeWalker.new('192.168.1.2.0/24')
+      expect(walker).not_to be_valid
+    end
+
+    it 'should reject an IPv6 CIDR range with too many octets' do
+      walker = Rex::Socket::RangeWalker.new('0:1:2:3:4:5:6:7:8/24')
       expect(walker).not_to be_valid
     end
 
     it 'should reject an IPv4 address with too many octets' do
       walker = Rex::Socket::RangeWalker.new('192.0.2.0.0')
       expect(walker).not_to be_valid
+
+      walker = Rex::Socket::RangeWalker.new('192.0.2.0.0 192.0.2.0')
+      expect(walker).to be_valid
+      expect(walker.length).to eq 1
+    end
+
+    it 'should reject an IPv6 address with too many octets' do
+      walker = Rex::Socket::RangeWalker.new('0:1:2:3:4:5:6:7:8')
+      expect(walker).not_to be_valid
+
+      walker = Rex::Socket::RangeWalker.new('0:1:2:3:4:5:6:7:8 0:1:2:3:4:5:6:7')
+      expect(walker).to be_valid
+      expect(walker.length).to eq 1
     end
 
     it "should default the lower bound of a range to 0" do

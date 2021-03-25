@@ -84,27 +84,27 @@ class RangeWalker
 
       # Handle IPv6 CIDR first
       if arg.include?(':') && arg.include?('/')
-        return false if (new_ranges = parse_ipv6_cidr(arg)).nil?
+        next if (new_ranges = parse_ipv6_cidr(arg)).nil?
 
       # Handle plain IPv6 next (support ranges, but not CIDR)
       elsif arg.include?(':')
-        return false if (new_ranges = parse_ipv6(arg)).nil?
+        next if (new_ranges = parse_ipv6(arg)).nil?
 
       # Handle IPv4 CIDR
       elsif arg.include?("/")
-        return false if (new_ranges = parse_ipv4_cidr(arg)).nil?
+        next if (new_ranges = parse_ipv4_cidr(arg)).nil?
 
       # Handle hostnames
       elsif arg =~ /[^-0-9,.*]/
-        return false if (new_ranges = parse_hostname(arg)).nil?
+        next if (new_ranges = parse_hostname(arg)).nil?
 
       # Handle IPv4 ranges
       elsif arg =~ MATCH_IPV4_RANGE
         # Then it's in the format of 1.2.3.4-5.6.7.8
-        return false if (new_ranges = parse_ipv4_ranges(arg)).nil?
+        next if (new_ranges = parse_ipv4_ranges(arg)).nil?
 
       else
-        return false if (new_ranges = expand_nmap(arg)).nil?
+        next if (new_ranges = expand_nmap(arg)).nil?
       end
 
       ranges += new_ranges
