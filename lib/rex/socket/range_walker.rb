@@ -134,7 +134,7 @@ class RangeWalker
   #
   # @return [Hash<Symbol, String>] The next host in the range
   def next_host
-    return false if not valid?
+    return unless valid?
 
     if (@curr_addr > @ranges[@curr_range_index].stop)
       # Then we are at the end of this range. Grab the next one.
@@ -247,7 +247,7 @@ class RangeWalker
   def expand_cidr(arg)
     start,stop = Rex::Socket.cidr_crack(arg)
     if !start or !stop
-      return false
+      return
     end
     range = Range.new
     range.start = Rex::Socket.addr_atoi(start)
@@ -399,7 +399,7 @@ class RangeWalker
     return if !valid_cidr_chars?(arg)
 
     ip_part, mask_part = arg.split("/")
-    return false unless (0..32).include? mask_part.to_i
+    return unless (0..32).include? mask_part.to_i
     if ip_part =~ /^\d{1,3}(\.\d{1,3}){1,3}$/
       return unless Rex::Socket.is_ipv4?(ip_part)
     end

@@ -123,6 +123,11 @@ RSpec.describe Rex::Socket::RangeWalker do
       expect(walker.length).to eq 1
     end
 
+    it 'should reject an IPv4 range with too few octets' do
+      walker = Rex::Socket::RangeWalker.new('127.0.0.2-1')
+      expect(walker).not_to be_valid
+    end
+
     it 'should reject an IPv6 address with too many octets' do
       walker = Rex::Socket::RangeWalker.new('0:1:2:3:4:5:6:7:8')
       expect(walker).not_to be_valid
@@ -197,16 +202,30 @@ RSpec.describe Rex::Socket::RangeWalker do
   end
 
   describe '#each_ip' do
-    let(:args) { "10.1.1.1-2,2,3 10.2.2.2" }
+    context 'when created with an invalid range' do
+      let(:args) { "127.0.0.2-1" }
 
-    it "should yield all ips" do
-      got = []
-      walker.each_ip { |ip|
-        got.push ip
-      }
-      expect(got).to eq ["10.1.1.1", "10.1.1.2", "10.1.1.3", "10.2.2.2"]
+      it 'should not yield any IPs' do
+        got = []
+        walker.each_ip { |ip|
+          got.push ip
+        }
+
+        expect(got).to eq []
+      end
     end
 
+    context 'when created with a valid range' do
+      let(:args) { "10.1.1.1-2,2,3 10.2.2.2" }
+
+      it "should yield all ips" do
+        got = []
+        walker.each_ip { |ip|
+          got.push ip
+        }
+        expect(got).to eq ["10.1.1.1", "10.1.1.2", "10.1.1.3", "10.2.2.2"]
+      end
+    end
   end
 
   describe '#each_host' do
