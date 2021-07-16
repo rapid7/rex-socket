@@ -15,20 +15,37 @@ RSpec.describe Rex::Socket::Parameters do
 
   describe '.new' do
 
-    it "should handle an IPv4 local host definition" do
-      params = Rex::Socket::Parameters.new({ "LocalHost" => "1.2.3.4", "LocalPort" => 1234 })
-      expect(params.localhost).to eq ("1.2.3.4")
+    it 'should handle an IPv4 local host definition' do
+      params = Rex::Socket::Parameters.new({ 'LocalHost' => '1.2.3.4', 'LocalPort' => 1234 })
+      expect(params.localhost).to eq '1.2.3.4'
       expect(params.localport).to eq 1234
       expect(params.v6?).to eq false
     end
 
-    it "should handle an IPv6 local host definition" do
-      params = Rex::Socket::Parameters.new({ "LocalHost" => "::1", "LocalPort" => 1234, "IPv6" => true })
-      expect(params.localhost).to eq ("::1")
+    it 'should handle an IPv4 peer host definition' do
+      params = Rex::Socket::Parameters.new({ 'PeerHost' => '1.2.3.4', 'PeerPort' => 1234 })
+      expect(params.localhost).to eq '0.0.0.0'
+      expect(params.localport).to eq 0
+      expect(params.peerhost).to eq '1.2.3.4'
+      expect(params.peerport).to eq 1234
+      expect(params.v6?).to eq false
+    end
+
+    it 'should handle an IPv6 local host definition' do
+      params = Rex::Socket::Parameters.new({ 'LocalHost' => '::1', 'LocalPort' => 1234, 'IPv6' => true })
+      expect(params.localhost).to eq '::1'
       expect(params.localport).to eq 1234
       expect(params.v6?).to eq true
     end
 
+    it 'should handle an IPv6 peer host definition' do
+      params = Rex::Socket::Parameters.new({ 'PeerHost' => '::1', 'PeerPort' => 1234, 'IPv6' => true })
+      expect(params.localhost).to eq '::'
+      expect(params.localport).to eq 0
+      expect(params.peerhost).to eq '::1'
+      expect(params.peerport).to eq 1234
+      expect(params.v6?).to eq true
+    end
   end
 
   describe '#merge' do
