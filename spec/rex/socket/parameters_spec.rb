@@ -24,27 +24,64 @@ RSpec.describe Rex::Socket::Parameters do
 
     it 'should handle an IPv4 peer host definition' do
       params = Rex::Socket::Parameters.new({ 'PeerHost' => '1.2.3.4', 'PeerPort' => 1234 })
-      expect(params.localhost).to eq '0.0.0.0'
-      expect(params.localport).to eq 0
       expect(params.peerhost).to eq '1.2.3.4'
       expect(params.peerport).to eq 1234
       expect(params.v6?).to eq false
     end
 
-    it 'should handle an IPv6 local host definition' do
-      params = Rex::Socket::Parameters.new({ 'LocalHost' => '::1', 'LocalPort' => 1234, 'IPv6' => true })
-      expect(params.localhost).to eq '::1'
-      expect(params.localport).to eq 1234
-      expect(params.v6?).to eq true
+    [ nil, true ].each do |ipv6|
+      it "should handle an IPv6 local host definition with IPv6 set to #{ipv6.inspect}" do
+        params = Rex::Socket::Parameters.new({ 'LocalHost' => '::1', 'LocalPort' => 1234, 'IPv6' => ipv6 })
+        expect(params.localhost).to eq '::1'
+        expect(params.localport).to eq 1234
+        expect(params.v6?).to eq true
+      end
     end
 
-    it 'should handle an IPv6 peer host definition' do
-      params = Rex::Socket::Parameters.new({ 'PeerHost' => '::1', 'PeerPort' => 1234, 'IPv6' => true })
-      expect(params.localhost).to eq '::'
-      expect(params.localport).to eq 0
-      expect(params.peerhost).to eq '::1'
-      expect(params.peerport).to eq 1234
-      expect(params.v6?).to eq true
+    [ nil, true ].each do |ipv6|
+      context "given an IPv6 peer host definition with IPv6 set to #{ipv6.inspect}" do
+        params = Rex::Socket::Parameters.new({ 'PeerHost' => '::1', 'PeerPort' => 1234, 'IPv6' => ipv6 })
+        it 'should set the local host correctly' do
+          expect(params.localhost).to eq '::'
+          expect(params.localport).to eq 0
+        end
+
+        it 'should set the peer host correctly' do
+          expect(params.peerhost).to eq '::1'
+          expect(params.peerport).to eq 1234
+        end
+
+        it 'should set #v6? correctly' do
+          expect(params.v6?).to eq true
+        end
+      end
+    end
+
+    context "given no value for IPv6" do
+      [
+        {'Options' => { 'LocalHost' => '127.0.0.1', 'PeerHost' => '127.0.0.1' }, 'ExpectedResult' => false },
+        {'Options' => { 'LocalHost' => '127.0.0.1', 'PeerHost' => '::1' }, 'ExpectedResult' => false },
+        {'Options' => { 'LocalHost' => '127.0.0.1', 'PeerHost' => 'localhost' }, 'ExpectedResult' => false },
+        {'Options' => { 'LocalHost' => '127.0.0.1', 'PeerHost' => nil }, 'ExpectedResult' => false },
+        {'Options' => { 'LocalHost' => '::1', 'PeerHost' => '127.0.0.1' }, 'ExpectedResult' => false },
+        {'Options' => { 'LocalHost' => '::1', 'PeerHost' => '::1' }, 'ExpectedResult' => true },
+        {'Options' => { 'LocalHost' => '::1', 'PeerHost' => 'localhost' }, 'ExpectedResult' => true },
+        {'Options' => { 'LocalHost' => '::1', 'PeerHost' => nil }, 'ExpectedResult' => true },
+        {'Options' => { 'LocalHost' => 'localhost', 'PeerHost' => '127.0.0.1' }, 'ExpectedResult' => false },
+        {'Options' => { 'LocalHost' => 'localhost', 'PeerHost' => '::1' }, 'ExpectedResult' => true },
+        {'Options' => { 'LocalHost' => 'localhost', 'PeerHost' => 'localhost' }, 'ExpectedResult' => false },
+        {'Options' => { 'LocalHost' => 'localhost', 'PeerHost' => nil }, 'ExpectedResult' => false },
+        {'Options' => { 'LocalHost' => nil, 'PeerHost' => '127.0.0.1' }, 'ExpectedResult' => false },
+        {'Options' => { 'LocalHost' => nil, 'PeerHost' => '::1' }, 'ExpectedResult' => true },
+        {'Options' => { 'LocalHost' => nil, 'PeerHost' => 'localhost' }, 'ExpectedResult' => false },
+        {'Options' => { 'LocalHost' => nil, 'PeerHost' => nil }, 'ExpectedResult' => false }
+      ].each do |test|
+        options = test['Options']
+        it "should automatically set v6 to #{test['ExpectedResult']} when localhost is #{options['LocalHost'].inspect} and peerhost is #{options['PeerHost'].inspect}" do
+          params = Rex::Socket::Parameters.new(options)
+          expect(params.v6).to eq test['ExpectedResult']
+        end
+      end
     end
   end
 

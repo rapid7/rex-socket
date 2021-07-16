@@ -195,7 +195,15 @@ class Rex::Socket::Parameters
     end
 
     # Whether to force IPv6 addressing
-    self.v6        = hash['IPv6']
+    if hash['IPv6'].nil?
+      # if IPv6 isn't specified and at least one host is an IPv6 address and the
+      # other is either nil, a hostname or an IPv6 address, then use IPv6
+      self.v6 = (Rex::Socket.is_ipv6?(self.localhost) || Rex::Socket.is_ipv6?(self.peerhost)) && \
+        (self.localhost.nil? || !Rex::Socket.is_ipv4?(self.localhost)) && \
+        (self.peerhost.nil? || !Rex::Socket.is_ipv4?(self.peerhost))
+    else
+      self.v6 = hash['IPv6']
+    end
   end
 
   def merge(other)
@@ -297,7 +305,13 @@ class Rex::Socket::Parameters
   # @return [String]
   attr_writer :localhost
   def localhost
-    @localhost || '0.0.0.0'
+    return @localhost if @localhost
+
+    if @v6 || (@peerhost && Rex::Socket.is_ipv6?(@peerhost))
+      '::'
+    else
+      '0.0.0.0'
+    end
   end
 
   # The local port.  Equivalent to the LocalPort parameter hash key.
