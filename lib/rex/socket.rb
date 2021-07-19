@@ -730,7 +730,7 @@ module Socket
   # Wrapper around getsockname that stores the local address and local port values.
   #
   def getlocalname
-    if self.localhost.nil? && self.localport.nil?
+    if [nil, '0.0.0.0', '::'].include?(self.localhost) && [nil, 0].include?(self.localport)
       _, self.localhost, self.localport = getsockname
     end
 
