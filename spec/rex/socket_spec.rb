@@ -184,4 +184,71 @@ RSpec.describe Rex::Socket do
     end
   end
 
+  describe '.is_ipv4?' do
+    subject(:addr) do
+      described_class.is_ipv4?(try)
+    end
+
+    context 'with an IPv4 address' do
+      let(:try) { '0.0.0.0' }
+      it 'should return true' do
+        expect(addr).to eq true
+      end
+    end
+
+    context 'with an IPv6 address' do
+      let(:try) { '::1' }
+      it 'should return false' do
+        expect(addr).to eq false
+      end
+    end
+
+   context 'with a hostname' do
+      let(:try) { "localhost" }
+      it "should return false" do
+        expect(addr).to eq false
+      end
+   end
+
+    context 'with nil' do
+      let(:try) { nil }
+      it "should return false" do
+        expect(addr).to eq false
+      end
+    end
+  end
+
+  describe '.is_ipv6?' do
+    subject(:addr) do
+      described_class.is_ipv6?(try)
+    end
+
+    context 'with an IPv4 address' do
+      let(:try) { '0.0.0.0' }
+      it 'should return false' do
+        expect(addr).to eq false
+      end
+    end
+
+    context 'with an IPv6 address' do
+      let(:try) { '::' }
+      it 'should return true' do
+        expect(addr).to eq true
+      end
+    end
+
+    context 'with a hostname' do
+      let(:try) { "localhost" }
+      it "should return false" do
+        expect(addr).to eq false
+      end
+    end
+
+    context 'with nil' do
+      let(:try) { nil }
+      it "should return false" do
+        expect(addr).to eq false
+      end
+    end
+  end
 end
