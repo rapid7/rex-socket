@@ -11,6 +11,9 @@ require 'openssl'
 ###
 module Rex::Socket::Ssl
 
+  # Default to SSLv23 (automatically negotiate)
+  DEFAULT_SSL_VERSION = :SSLv23
+
   module CertProvider
 
     def self.ssl_generate_subject(cn: nil, org: nil, loc: nil, st: nil)
