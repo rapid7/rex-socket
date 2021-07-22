@@ -125,7 +125,14 @@ module Rex::Socket::Ssl
       key, cert, chain = ssl_generate_certificate(cert_vars: {cn: params.ssl_cn})
     end
 
-    ctx = OpenSSL::SSL::SSLContext.new()
+    version = params&.ssl_version || DEFAULT_SSL_VERSION
+    # Raise an error if no selected versions are supported
+    unless Rex::Socket::SslTcp.system_ssl_methods.include? version
+      raise ArgumentError,
+        "This version of Ruby does not support the requested SSL/TLS version #{ssl_version}"
+    end
+
+    ctx = OpenSSL::SSL::SSLContext.new(version)
     ctx.key = key
     ctx.cert = cert
     ctx.extra_chain_cert = chain
