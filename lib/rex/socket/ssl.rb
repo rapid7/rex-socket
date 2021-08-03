@@ -129,7 +129,7 @@ module Rex::Socket::Ssl
     # Raise an error if no selected versions are supported
     unless Rex::Socket::SslTcp.system_ssl_methods.include? version
       raise ArgumentError,
-        "This version of Ruby does not support the requested SSL/TLS version #{ssl_version}"
+        "This version of Ruby does not support the requested SSL/TLS version #{version}"
     end
 
     ctx = OpenSSL::SSL::SSLContext.new(version)
