@@ -110,10 +110,7 @@ class Rex::Socket::Parameters
       self.sslctx = hash['SSLContext']
     end
 
-    supported_ssl_versions = ['Auto', 'SSL2', 'SSL23', 'TLS1', 'SSL3', :Auto, :SSLv2, :SSLv3, :SSLv23, :TLSv1]
-    if (hash['SSLVersion'] and supported_ssl_versions.include? hash['SSLVersion'])
-      self.ssl_version = hash['SSLVersion']
-    end
+    self.ssl_version = hash.fetch('SSLVersion', nil)
 
     supported_ssl_verifiers = %W{CLIENT_ONCE FAIL_IF_NO_PEER_CERT NONE PEER}
     if (hash['SSLVerifyMode'] and supported_ssl_verifiers.include? hash['SSLVerifyMode'])
@@ -383,7 +380,27 @@ class Rex::Socket::Parameters
 
   # What version of SSL to use (Auto, SSL2, SSL3, SSL23, TLS1)
   # @return [String,Symbol]
-  attr_accessor :ssl_version
+  attr_reader :ssl_version
+  def ssl_version=(version)
+    # Let the caller specify a particular SSL/TLS version
+    case version
+    when 'SSL2'
+      version = :SSLv2
+    # 'TLS' will be the new name for autonegotation with newer versions of OpenSSL
+    when 'SSL23', 'TLS', 'Auto'
+      version = :SSLv23
+    when 'SSL3'
+      version = :SSLv3
+    when 'TLS1','TLS1.0'
+      version = :TLSv1
+    when 'TLS1.1'
+      version = :TLSv1_1
+    when 'TLS1.2'
+      version = :TLSv1_2
+    end
+
+    @ssl_version = version
+  end
 
   # What specific SSL Cipher(s) to use, may be a string containing the cipher
   # name or an array of strings containing cipher names e.g.

@@ -65,35 +65,14 @@ begin
   def initsock(params = nil)
     super
 
-    # Default to SSLv23 (automatically negotiate)
-    version = :SSLv23
-
-    # Let the caller specify a particular SSL/TLS version
-    if params
-      case params.ssl_version
-      when 'SSL2', :SSLv2
-        version = :SSLv2
-      # 'TLS' will be the new name for autonegotation with newer versions of OpenSSL
-      when 'SSL23', :SSLv23, 'TLS', 'Auto'
-        version = :SSLv23
-      when 'SSL3', :SSLv3
-        version = :SSLv3
-      when 'TLS1','TLS1.0', :TLSv1
-        version = :TLSv1
-      when 'TLS1.1', :TLSv1_1
-        version = :TLSv1_1
-      when 'TLS1.2', :TLSv1_2
-        version = :TLSv1_2
-      end
-    end
-
+    version = params&.ssl_version || Rex::Socket::Ssl::DEFAULT_SSL_VERSION
     # Raise an error if no selected versions are supported
     unless Rex::Socket::SslTcp.system_ssl_methods.include? version
       raise ArgumentError,
-        "This version of Ruby does not support the requested SSL/TLS version #{params.ssl_version}"
+        "This version of Ruby does not support the requested SSL/TLS version #{version}"
     end
 
-    # Try intializing the socket with this SSL/TLS version
+    # Try initializing the socket with this SSL/TLS version
     # This will throw an exception if it fails
     initsock_with_ssl_version(params, version)
 
