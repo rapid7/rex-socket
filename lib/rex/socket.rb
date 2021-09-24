@@ -707,6 +707,7 @@ module Socket
       self.peerport  = params.peerport
       self.localhost = params.localhost
       self.localport = params.localport
+      self.comm      = params.comm
       self.context   = params.context || {}
       self.ipv       = params.v6 ? 6 : 4
     end
@@ -795,6 +796,10 @@ module Socket
   #
   attr_reader :localport
   #
+  # The underlying communication channel used by this socket.
+  #
+  attr_reader :comm
+  #
   # The IP version of the socket
   #
   attr_reader :ipv
@@ -807,7 +812,7 @@ module Socket
 
 protected
 
-  attr_writer :peerhost, :peerport, :localhost, :localport # :nodoc:
+  attr_writer :peerhost, :peerport, :localhost, :localport, :comm # :nodoc:
   attr_writer :context # :nodoc:
   attr_writer :ipv # :nodoc:
 

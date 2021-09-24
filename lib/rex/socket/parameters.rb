@@ -170,7 +170,15 @@ class Rex::Socket::Parameters
     self.server    = hash['Server']
 
     # The communication subsystem to use to create the socket
-    self.comm      = hash['Comm']
+    self.comm      = hash['Comm'] if hash['Comm']
+
+    # If no comm was explicitly specified, try to use the comm that is best fit
+    # to handle the provided host based on the current routing table.
+    if self.server and self.localhost
+      self.comm = Rex::Socket::SwitchBoard.best_comm(self.localhost)
+    elsif self.peerhost
+      self.comm =  Rex::Socket::SwitchBoard.best_comm(self.peerhost)
+    end
 
     # The context that was passed in, if any.
     self.context   = hash['Context']
@@ -338,18 +346,7 @@ class Rex::Socket::Parameters
   # @return [Comm]
   attr_writer :comm
   def comm
-    return @comm unless @comm.nil?
-
-    best_comm = nil
-    # If no comm was explicitly specified, try to use the comm that is best fit
-    # to handle the provided host based on the current routing table.
-    if server and localhost
-      best_comm = Rex::Socket::SwitchBoard.best_comm(localhost)
-    elsif peerhost
-      best_comm =  Rex::Socket::SwitchBoard.best_comm(peerhost)
-    end
-
-    best_comm || Rex::Socket::Comm::Local
+    @comm || Rex::Socket::Comm::Local
   end
 
   # The context hash that was passed in to the structure.  (default: {})
