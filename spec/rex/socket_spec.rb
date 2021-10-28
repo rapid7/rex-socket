@@ -110,8 +110,9 @@ RSpec.describe Rex::Socket do
 
   describe '.getaddresses' do
 
+    let(:hostname) { 'whatever' }
     let(:accepts_ipv6) { true }
-    subject { described_class.getaddresses('whatever', accepts_ipv6) }
+    subject { described_class.getaddresses(hostname, accepts_ipv6) }
 
     before(:example) do
       allow(Addrinfo).to receive(:getaddrinfo).and_return(response_addresses.map {|address| Addrinfo.ip(address)})
@@ -151,6 +152,13 @@ RSpec.describe Rex::Socket do
         it { is_expected.to be_an(Array) }
         it { expect(subject).to be_empty }
       end
+    end
+
+    context 'when passed in nil hostname' do
+      let(:hostname) { nil }
+      let(:response_addresses) { [] }
+
+      it { expect { subject }.to raise_exception(::SocketError, 'getaddrinfo: nodename nor servname provided, or not known') }
     end
   end
 
