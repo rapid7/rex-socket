@@ -184,6 +184,8 @@ module Socket
   # @param hostname [String] A hostname or ASCII IP address
   # @return [Array<String>]
   def self.getaddresses(hostname, accept_ipv6 = true)
+    raise ::SocketError, 'getaddrinfo: nodename nor servname provided, or not known' if hostname.nil?
+
     if hostname =~ MATCH_IPV4 || (accept_ipv6 && hostname =~ MATCH_IPV6)
       return [hostname]
     end
@@ -821,4 +823,3 @@ end
 SHUT_RDWR = ::Socket::SHUT_RDWR
 SHUT_RD   = ::Socket::SHUT_RD
 SHUT_WR   = ::Socket::SHUT_WR
-
