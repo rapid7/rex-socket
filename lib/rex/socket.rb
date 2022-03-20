@@ -216,7 +216,11 @@ module Socket
       return [hostname]
     end
 
-    res = ::Addrinfo.getaddrinfo(hostname, 0, ::Socket::AF_UNSPEC, ::Socket::SOCK_STREAM)
+    res = if @@resolver
+      self.rex_getaddrinfo(hostname)
+    else
+      ::Addrinfo.getaddrinfo(hostname, 0, ::Socket::AF_UNSPEC, ::Socket::SOCK_STREAM)
+    end
 
     res.map! do |address_info|
       address_info.ip_address
@@ -248,7 +252,7 @@ module Socket
       host, _ = host.split('%', 2)
     end
 
-    ::Socket.gethostbyname(host)
+    @@resolver ? self.rex_gethostbyname(host) : ::Socket.gethostbyname(host)
   end
 
   #
@@ -719,6 +723,13 @@ module Socket
     return [lsock, rsock]
   end
 
+  #
+  # Install Rex::Proto::DNS::Resolver, or similar, to pivot DNS
+  #
+  def self._install_global_resolver(res)
+    @@resolver = res
+  end
+
 
   ##
   #
@@ -844,6 +855,51 @@ protected
   attr_writer :context # :nodoc:
   attr_writer :ipv # :nodoc:
 
+  def self.rex_gethostbyname(name)
+    # Pull both record types
+    v4 = @@resolver.send(name, ::Net::DNS::A).answer.first
+    v6 = @@resolver.send(name, ::Net::DNS::AAAA).answer.first
+    # Emulate ::Socket's error if no responses found
+    if !v4 and !v6
+      raise SocketError.new('getaddrinfo: Name or service not known')
+    end
+    # Build response array
+    hostbyname = [name, []]
+    if v4
+      hostbyname << Socket::AF_INET
+      hostbyname << self.addr_aton(v4.address.to_s)
+      hostbyname << self.addr_aton(v6.address.to_s) if v6
+    else
+      hostbyname << Socket::AF_INET6
+      hostbyname << self.addr_aton(v6.address.to_s)
+    end
+    return hostbyname
+  end
+
+  def self.rex_getaddrinfo(name)
+    # Pull both record types
+    v4 = @@resolver.send(name, ::Net::DNS::A).answer.first
+    v6 = @@resolver.send(name, ::Net::DNS::AAAA).answer.first
+    # Emulate ::Socket's error if no responses found
+    if !v4 and !v6
+      raise SocketError.new('getaddrinfo: Name or service not known')
+    end
+    # Build response array
+    getaddrinfo = []
+    getaddrinfo << Addrinfo.new(
+      self.to_sockaddr(v4.address.to_s,0),
+      Socket::AF_INET,
+      Socket::SOCK_STREAM,
+      Socket::IPPROTO_TCP,
+    ) if v4
+    getaddrinfo << Addrinfo.new(
+      self.to_sockaddr(v6.address.to_s,0),
+      Socket::AF_INET6,
+      Socket::SOCK_STREAM,
+      Socket::IPPROTO_TCP,
+    ) if v6
+    return getaddrinfo
+  end
 end
 
 end
