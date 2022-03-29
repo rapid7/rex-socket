@@ -122,6 +122,9 @@ module Socket
   end
 
   #
+  # Cache our resolver
+  @@resolver = nil
+
   # Determine whether this is an IPv4 address
   #
   def self.is_ipv4?(addr)
@@ -724,7 +727,7 @@ module Socket
   end
 
   #
-  # Install Rex::Proto::DNS::Resolver, or similar, to pivot DNS
+  # Install Rex::Proto::DNS::CachedResolver, or similar, to pivot DNS
   #
   def self._install_global_resolver(res)
     @@resolver = res
