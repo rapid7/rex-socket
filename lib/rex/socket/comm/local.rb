@@ -1,5 +1,6 @@
 # -*- coding: binary -*-
 require 'singleton'
+require 'rex/compat'
 require 'rex/socket'
 require 'rex/socket/tcp'
 require 'rex/socket/ssl_tcp'
