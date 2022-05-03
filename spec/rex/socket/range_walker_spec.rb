@@ -165,6 +165,18 @@ RSpec.describe Rex::Socket::RangeWalker do
       expect(walker).to include("10.1.255.3")
     end
 
+    it "should ignore trailing commas" do
+      walker = Rex::Socket::RangeWalker.new("10.1.1.1")
+      expect(walker).to be_valid
+      expect(walker.length).to eq 1
+      walker = Rex::Socket::RangeWalker.new("10.1.1.1,")
+      expect(walker).to be_valid
+      expect(walker.length).to eq 1
+      walker = Rex::Socket::RangeWalker.new("10.1.1.1,,,,,")
+      expect(walker).to be_valid
+      expect(walker.length).to eq 1
+    end
+
     it "should handle lists" do
       walker = Rex::Socket::RangeWalker.new("10.1.1.1")
       expect(walker).to be_valid

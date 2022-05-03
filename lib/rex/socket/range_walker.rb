@@ -81,6 +81,8 @@ class RangeWalker
 
     ranges = []
     parseme.split(', ').map{ |a| a.split(' ') }.flatten.each do |arg|
+      # Remove trailing commas that may be unneeded, i.e. '1.1.1.1,'
+      arg = arg.sub(/,+$/, '')
 
       # Handle IPv6 CIDR first
       if arg.include?(':') && arg.include?('/')
