@@ -49,6 +49,7 @@ class Rex::Socket::Parameters
   # keys can be specified.
   #
   # @option hash [String] 'PeerHost' The remote host to connect to
+  # @option hash [String] 'PeerHostname' The unresolved remote hostname, used to specify Server Name Indication (SNI)
   # @option hash [String] 'PeerAddr' (alias for 'PeerHost')
   # @option hash [Fixnum] 'PeerPort' The remote port to connect to
   # @option hash [String] 'LocalHost' The local host to communicate from, if any
@@ -82,6 +83,10 @@ class Rex::Socket::Parameters
       self.peerhost = hash['PeerHost']
     elsif (hash['PeerAddr'])
       self.peerhost = hash['PeerAddr']
+    end
+
+    if (hash['PeerHostname'])
+      self.peerhostname = hash['PeerHostname']
     end
 
     if (hash['LocalHost'])
@@ -290,6 +295,11 @@ class Rex::Socket::Parameters
   # key.
   # @return [String]
   attr_accessor :peerhost
+
+  # The remote hostname information, equivalent to the PeerHostname parameter hash
+  # key.
+  # @return [String]
+  attr_accessor :peerhostname
 
   # The remote port.  Equivalent to the PeerPort parameter hash key.
   # @return [Fixnum]

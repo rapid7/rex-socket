@@ -706,6 +706,7 @@ module Socket
   def initsock(params = nil)
     if (params)
       self.peerhost  = params.peerhost
+      self.peerhostname = params.peerhostname
       self.peerport  = params.peerport
       self.localhost = params.localhost
       self.localport = params.localport
@@ -785,6 +786,10 @@ module Socket
   #
   attr_reader :peerhost
   #
+  # The peer hostname of the connected socket.
+  #
+  attr_reader :peerhostname
+  #
   # The peer port of the connected socket.
   #
   attr_reader :peerport
@@ -809,7 +814,7 @@ module Socket
 
 protected
 
-  attr_writer :peerhost, :peerport, :localhost, :localport # :nodoc:
+  attr_writer :peerhost, :peerhostname, :peerport, :localhost, :localport # :nodoc:
   attr_writer :context # :nodoc:
   attr_writer :ipv # :nodoc:
 
