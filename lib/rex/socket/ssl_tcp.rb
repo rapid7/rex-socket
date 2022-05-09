@@ -128,7 +128,7 @@ begin
     # extension
     if self.peerhostname
       self.sslsock.hostname = self.peerhostname
-    else !Rex::Socket.dotted_ip?(self.peerhost)
+    elsif !Rex::Socket.dotted_ip?(self.peerhost)
       self.sslsock.hostname = self.peerhost
     end
 
