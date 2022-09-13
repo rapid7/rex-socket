@@ -109,6 +109,7 @@ begin
     end
 
     self.sslctx.options = OpenSSL::SSL::OP_ALL
+    self.sslctx.options |= OpenSSL::SSL::OP_LEGACY_SERVER_CONNECT
 
     if params.ssl_cipher
       self.sslctx.ciphers = params.ssl_cipher
