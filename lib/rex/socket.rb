@@ -893,6 +893,9 @@ protected
     if !v4 and !v6
       raise ::SocketError.new('getaddrinfo: Name or service not known')
     end
+    [v4, v6].compact.map do |ans|
+      ans = resolver.send(ans.name).answer.first unless ans.respond_to?(:address)
+    end
     # Build response array
     getaddrinfo = []
     getaddrinfo << Addrinfo.new(
