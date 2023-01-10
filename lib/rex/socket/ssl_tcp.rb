@@ -127,7 +127,7 @@ begin
     # If peerhostname is set, or if hostname looks like a hostname, set the undocumented 'hostname'
     # attribute on sslsock, which enables the Server Name Indication (SNI)
     # extension
-    if self.peerhostname
+    if self.peerhostname and not self.peerhostname.strip.empty?
       self.sslsock.hostname = self.peerhostname
     elsif !Rex::Socket.dotted_ip?(self.peerhost)
       self.sslsock.hostname = self.peerhost
