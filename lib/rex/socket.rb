@@ -729,6 +729,8 @@ module Socket
   #
   # Install Rex::Proto::DNS::CachedResolver, or similar, to pivot DNS
   #
+  # @param res [Rex::Proto::DNS::CachedResolver] Resolver object to handle DNS requests
+  # @return [Rex::Proto::DNS::CachedResolver] The installed resolver
   def self._install_global_resolver(res)
     @@resolver = res
   end
@@ -858,17 +860,12 @@ protected
   attr_writer :context # :nodoc:
   attr_writer :ipv # :nodoc:
 
+  #
+  # @param name [String] The hostname to lookup via the resolver
+  # @param resolver [Rex::Proto::DNS::CachedResolver] Resolver to query for the name
+  # @return [Array] Array mimicking the native gethostbyname return type
   def self.rex_gethostbyname(name, resolver = @@resolver)
-    raise ::SocketError.new(
-      "Rex::Socket internal DNS resolution requires passing/setting a resolver"
-    ) unless resolver
-    # Pull both record types
-    v4 = resolver.send(name, ::Net::DNS::A).answer.first
-    v6 = resolver.send(name, ::Net::DNS::AAAA).answer.first
-    # Emulate ::Socket's error if no responses found
-    if !v4 and !v6
-      raise ::SocketError.new('getaddrinfo: Name or service not known')
-    end
+    v4, v6 = self.rex_resolve_hostname(name, resolver)
     # Build response array
     hostbyname = [name, []]
     if v4
@@ -882,20 +879,12 @@ protected
     return hostbyname
   end
 
+  #
+  # @param name [String] The hostname to lookup via the resolver
+  # @param resolver [Rex::Proto::DNS::CachedResolver] Resolver to query for the name
+  # @return [Array] Array mimicking the native getaddrinfo return type
   def self.rex_getaddrinfo(name, resolver = @@resolver)
-    raise ::SocketError.new(
-      "Rex::Socket internal DNS resolution requires passing/setting a resolver"
-    ) unless resolver
-    # Pull both record types
-    v4 = resolver.send(name, ::Net::DNS::A).answer.first
-    v6 = resolver.send(name, ::Net::DNS::AAAA).answer.first
-    # Emulate ::Socket's error if no responses found
-    if !v4 and !v6
-      raise ::SocketError.new('getaddrinfo: Name or service not known')
-    end
-    [v4, v6].compact.map do |ans|
-      ans = resolver.send(ans.name).answer.first unless ans.respond_to?(:address)
-    end
+    v4, v6 = self.rex_resolve_hostname(name, resolver)
     # Build response array
     getaddrinfo = []
     getaddrinfo << Addrinfo.new(
@@ -911,6 +900,31 @@ protected
       ::Socket::IPPROTO_TCP,
     ) if v6
     return getaddrinfo
+  end
+
+
+  # @param name [String] The hostname to lookup via the resolver
+  # @param resolver [Rex::Proto::DNS::CachedResolver] Resolver to query for the name
+  # @return [Array] Array of Dnsruby::Message responses for consumers to reformat
+  def self.rex_resolve_hostname(name, resolver = @@resolver)
+    raise ::SocketError.new(
+      "Rex::Socket internal DNS resolution requires passing/setting a resolver"
+    ) unless resolver
+    raise ::SocketError.new(
+      "Rex::Socket internal DNS resolution requires passing a String name to resolve"
+    ) unless name.is_a?(String)
+    # Pull both record types
+    v4 = resolver.send(name, ::Net::DNS::A).answer.first
+    v6 = resolver.send(name, ::Net::DNS::AAAA).answer.first
+    # Emulate ::Socket's error if no responses found
+    if !v4 and !v6
+      raise ::SocketError.new('getaddrinfo: Name or service not known')
+    end
+    # Ensure response types (depending on underlying library used) provide required methods
+    [v4, v6].compact.map do |ans|
+      ans = resolver.send(ans.name).answer.first unless ans.respond_to?(:address)
+    end
+    return v4, v6
   end
 end
 
