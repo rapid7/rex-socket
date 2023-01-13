@@ -433,7 +433,8 @@ class Rex::Socket::Comm::Local
         raise Rex::ConnectionProxyError.new(host, port, type, "The proxy returned a non-OK response"), caller
       end
     when 'socks4'
-      setup = [4,1,port.to_i].pack('CCn') + Socket.gethostbyname(host)[3] + Rex::Text.rand_text_alpha(rand(8)+1) + "\x00"
+      supports_ipv6 = false
+      setup = [4,1,port.to_i].pack('CCn') + Socket.resolv_nbo(host, supports_ipv6) + Rex::Text.rand_text_alpha(rand(8)+1) + "\x00"
       size = sock.put(setup)
       if size != setup.length
         raise Rex::ConnectionProxyError.new(host, port, type, "Failed to send the entire request to the proxy"), caller
@@ -463,11 +464,13 @@ class Rex::Socket::Comm::Local
       end
 
       if Rex::Socket.is_ipv4?(host)
-        addr = Rex::Socket.gethostbyname(host)[3]
+        accepts_ipv6 = false
+        addr = Rex::Socket.resolv_nbo(host)
         setup = [5,1,0,1].pack('C4') + addr + [port.to_i].pack('n')
       elsif Rex::Socket.support_ipv6? && Rex::Socket.is_ipv6?(host)
         # IPv6 stuff all untested
-        addr = Rex::Socket.gethostbyname(host)[3]
+        accepts_ipv6 = true
+        addr = Rex::Socket.resolv_nbo(host, accepts_ipv6)
         setup = [5,1,0,4].pack('C4') + addr + [port.to_i].pack('n')
       else
         # Then it must be a domain name.
