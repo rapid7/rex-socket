@@ -211,7 +211,7 @@ module Socket
   #
   # @deprecated Please use {#getaddress}, {#resolv_nbo}, or similar instead.
   def self.gethostbyname(host)
-    warn "NOTE: #{self}.#{__method__} is deprecated, use getaddress, resolve_nbo, or similar instead. It will be removed in the next Major version"
+    warn "NOTE: #{self}.#{__method__} is deprecated, use getaddress, resolv_nbo, or similar instead. It will be removed in the next Major version"
     if is_ipv4?(host)
       return [ host, [], 2, host.split('.').map{ |c| c.to_i }.pack("C4") ]
     end
