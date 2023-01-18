@@ -540,8 +540,11 @@ end
 class Host < Range
   attr_accessor :hostname
 
-  def initialize(address, hostname=nil, options=nil)
-    address = Rex::Socket.addr_atoi(address) if address.is_a? String
+  def initialize(address, hostname=nil, options={})
+    if address.is_a? String
+      options.merge!({ ipv6: address.include?(":") }) if options[:ipv6].nil?
+      address = Rex::Socket.addr_atoi(address)
+    end
 
     super(address, address, options)
     @hostname = hostname
