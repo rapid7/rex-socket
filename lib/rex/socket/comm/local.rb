@@ -6,6 +6,8 @@ require 'rex/socket/tcp'
 require 'rex/socket/ssl_tcp'
 require 'rex/socket/ssl_tcp_server'
 require 'rex/socket/udp'
+require 'rex/socket/sctp'
+require 'rex/socket/sctp_server'
 require 'rex/socket/ip'
 require 'timeout'
 
@@ -34,6 +36,8 @@ class Rex::Socket::Comm::Local
         return create_by_type(param, ::Socket::SOCK_STREAM, ::Socket::IPPROTO_TCP)
       when 'udp'
         return create_by_type(param, ::Socket::SOCK_DGRAM, ::Socket::IPPROTO_UDP)
+      when 'sctp'
+        return create_by_type(param, ::Socket::SOCK_STREAM, ::Socket::IPPROTO_SCTP)
       when 'ip'
         return create_ip(param)
       else
@@ -194,15 +198,21 @@ class Rex::Socket::Comm::Local
       sock.setsockopt(::Socket::SOL_SOCKET, ::Socket::SO_BROADCAST, true)
     end
 
-    # If a server TCP instance is being created...
+    # If a server instance is being created...
     if param.server?
       sock.listen(256)
 
       if !param.bare?
-        klass = Rex::Socket::TcpServer
-        if param.ssl
-          klass = Rex::Socket::SslTcpServer
-        end
+        if param.proto == 'tcp'
+          klass = Rex::Socket::TcpServer
+          if param.ssl
+            klass = Rex::Socket::SslTcpServer
+          end
+        elsif param.proto == 'sctp'
+            klass = Rex::Socket::SctpServer
+        else
+          raise Rex::BindFailed.new(param.localhost, param.localport), caller
+        end  
         sock.extend(klass)
 
         sock.initsock(param)
@@ -308,6 +318,9 @@ class Rex::Socket::Comm::Local
             sock.initsock(param)
           when 'udp'
             sock.extend(Rex::Socket::Udp)
+            sock.initsock(param)
+          when 'sctp'
+            sock.extend(Rex::Socket::Sctp)
             sock.initsock(param)
         end
       end
