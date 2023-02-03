@@ -868,13 +868,13 @@ protected
     v4, v6 = self.rex_resolve_hostname(name, resolver)
     # Build response array
     hostbyname = [name, []]
-    if v4
+    if v4[0]
       hostbyname << ::Socket::AF_INET
-      hostbyname << self.addr_aton(v4.address.to_s)
-      hostbyname << self.addr_aton(v6.address.to_s) if v6
+      hostbyname << self.addr_aton(v4[0].address.to_s)
+      hostbyname << self.addr_aton(v6[0].address.to_s) if v6[0]
     else
       hostbyname << ::Socket::AF_INET6
-      hostbyname << self.addr_aton(v6.address.to_s)
+      hostbyname << self.addr_aton(v6[0].address.to_s)
     end
     return hostbyname
   end
@@ -887,18 +887,22 @@ protected
     v4, v6 = self.rex_resolve_hostname(name, resolver)
     # Build response array
     getaddrinfo = []
-    getaddrinfo << Addrinfo.new(
-      self.to_sockaddr(v4.address.to_s,0),
-      ::Socket::AF_INET,
-      ::Socket::SOCK_STREAM,
-      ::Socket::IPPROTO_TCP,
-    ) if v4
-    getaddrinfo << Addrinfo.new(
-      self.to_sockaddr(v6.address.to_s,0),
-      ::Socket::AF_INET6,
-      ::Socket::SOCK_STREAM,
-      ::Socket::IPPROTO_TCP,
-    ) if v6
+    v4.each do |a4|
+      getaddrinfo << Addrinfo.new(
+        self.to_sockaddr(a4.address.to_s,0),
+        ::Socket::AF_INET,
+        ::Socket::SOCK_STREAM,
+        ::Socket::IPPROTO_TCP,
+      ) if v4[0]
+    end
+    v6.each do |a6|
+      getaddrinfo << Addrinfo.new(
+        self.to_sockaddr(a6.address.to_s,0),
+        ::Socket::AF_INET6,
+        ::Socket::SOCK_STREAM,
+        ::Socket::IPPROTO_TCP,
+      ) if v6[0]
+    end
     return getaddrinfo
   end
 
@@ -914,16 +918,17 @@ protected
       "Rex::Socket internal DNS resolution requires passing a String name to resolve"
     ) unless name.is_a?(String)
     # Pull both record types
-    v4 = resolver.send(name, ::Net::DNS::A).answer.first
-    v6 = resolver.send(name, ::Net::DNS::AAAA).answer.first
+    v4 = resolver.send(name, ::Net::DNS::A).answer.select {
+      |a| a.type == Dnsruby::Types::A}.sort_by {|a| a.address.to_s
+    }
+    v6 = resolver.send(name, ::Net::DNS::AAAA).answer.select {|a|
+      a.type == Dnsruby::Types::AAAA}.sort_by {|a| a.address.to_s
+    }
     # Emulate ::Socket's error if no responses found
-    if !v4 and !v6
+    if !v4[0] and !v6[0]
       raise ::SocketError.new('getaddrinfo: Name or service not known')
     end
     # Ensure response types (depending on underlying library used) provide required methods
-    [v4, v6].compact.map do |ans|
-      ans = resolver.send(ans.name).answer.first unless ans.respond_to?(:address)
-    end
     return v4, v6
   end
 end
