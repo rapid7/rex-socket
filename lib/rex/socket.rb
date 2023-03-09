@@ -219,10 +219,10 @@ module Socket
       return [hostname]
     end
 
-    res = if @@resolver
-      self.rex_getaddrinfo(hostname)
+    if @@resolver
+      res = self.rex_getaddrinfo(hostname)
     else
-      ::Addrinfo.getaddrinfo(hostname, 0, ::Socket::AF_UNSPEC, ::Socket::SOCK_STREAM)
+      res = ::Addrinfo.getaddrinfo(hostname, 0, ::Socket::AF_UNSPEC, ::Socket::SOCK_STREAM)
     end
 
     res.map! do |address_info|
