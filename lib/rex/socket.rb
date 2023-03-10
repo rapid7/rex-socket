@@ -918,12 +918,20 @@ protected
       "Rex::Socket internal DNS resolution requires passing a String name to resolve"
     ) unless name.is_a?(String)
     # Pull both record types
-    v4 = resolver.send(name, ::Net::DNS::A).answer.select {
-      |a| a.type == Dnsruby::Types::A}.sort_by {|a| a.address.to_s
-    }
-    v6 = resolver.send(name, ::Net::DNS::AAAA).answer.select {|a|
-      a.type == Dnsruby::Types::AAAA}.sort_by {|a| a.address.to_s
-    }
+    v4 = begin
+      resolver.send(name, ::Net::DNS::A).answer.select {|a|
+        a.type == Dnsruby::Types::A}.sort_by {|a| a.address.to_s
+      }
+    rescue
+      [nil]
+    end
+    v6 = begin
+      resolver.send(name, ::Net::DNS::AAAA).answer.select {|a|
+        a.type == Dnsruby::Types::AAAA}.sort_by {|a| a.address.to_s
+      }
+    rescue
+      [nil]
+    end
     # Emulate ::Socket's error if no responses found
     if !v4[0] and !v6[0]
       raise ::SocketError.new('getaddrinfo: Name or service not known')
