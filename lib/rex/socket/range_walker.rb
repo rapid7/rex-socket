@@ -542,7 +542,7 @@ class Host < Range
 
   def initialize(address, hostname=nil, options={})
     if address.is_a? String
-      options.merge!({ ipv6: address.include?(":") }) if options[:ipv6].nil?
+      options.merge!({ ipv6: Rex::Socket.is_ipv6?(address) }) if options[:ipv6].nil?
       address = Rex::Socket.addr_atoi(address)
     end
 
