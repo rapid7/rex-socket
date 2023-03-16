@@ -235,6 +235,29 @@ begin
   end
 
   #
+  # Polls the stream to see if there is any read data available.  Returns
+  # true if data is available for reading, otherwise false is returned.
+  #
+  def has_read_data?(timeout = nil)
+    return true if self.sslsock.pending > 0
+
+    # Allow a timeout of "0" that waits almost indefinitely for input, this
+    # mimics the behavior of Rex::ThreadSafe.select() and fixes some corner
+    # cases of unintentional no-wait timeouts.
+    timeout = 3600 if (timeout and timeout == 0)
+
+    begin
+      s = Rex::ThreadSafe.select( [ self.sslsock ], nil, nil, timeout )
+      return !( s == nil || s[0] == nil )
+    rescue ::Errno::EBADF, ::Errno::ENOTSOCK
+      raise ::EOFError
+    rescue StreamClosedError, ::IOError, ::EOFError, ::Errno::EPIPE
+      #  Return false if the socket is dead
+      return false
+    end
+  end
+
+  #
   # Reads data from the SSL socket.
   #
   def read(length = nil, opts = {})
