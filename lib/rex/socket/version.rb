@@ -1,5 +1,5 @@
 module Rex
   module Socket
-    VERSION = "0.1.49"
+    VERSION = "0.1.50"
   end
 end
