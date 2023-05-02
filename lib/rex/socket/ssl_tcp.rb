@@ -251,7 +251,7 @@ begin
       return !( s == nil || s[0] == nil )
     rescue ::Errno::EBADF, ::Errno::ENOTSOCK
       raise ::EOFError
-    rescue StreamClosedError, ::IOError, ::EOFError, ::Errno::EPIPE
+    rescue ::Rex::StreamClosedError, ::IOError, ::EOFError, ::Errno::EPIPE
       #  Return false if the socket is dead
       return false
     end
