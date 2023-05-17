@@ -212,7 +212,7 @@ class Rex::Socket::Comm::Local
             klass = Rex::Socket::SctpServer
         else
           raise Rex::BindFailed.new(param.localhost, param.localport), caller
-        end  
+        end
         sock.extend(klass)
 
         sock.initsock(param)
@@ -447,7 +447,7 @@ class Rex::Socket::Comm::Local
       end
     when 'socks4'
       supports_ipv6 = false
-      setup = [4,1,port.to_i].pack('CCn') + Socket.resolv_nbo(host, supports_ipv6) + Rex::Text.rand_text_alpha(rand(8)+1) + "\x00"
+      setup = [4,1,port.to_i].pack('CCn') + Rex::Socket.resolv_nbo(host, supports_ipv6) + Rex::Text.rand_text_alpha(rand(8)+1) + "\x00"
       size = sock.put(setup)
       if size != setup.length
         raise Rex::ConnectionProxyError.new(host, port, type, "Failed to send the entire request to the proxy"), caller
@@ -478,7 +478,7 @@ class Rex::Socket::Comm::Local
 
       if Rex::Socket.is_ipv4?(host)
         accepts_ipv6 = false
-        addr = Rex::Socket.resolv_nbo(host)
+        addr = Rex::Socket.resolv_nbo(host, accepts_ipv6)
         setup = [5,1,0,1].pack('C4') + addr + [port.to_i].pack('n')
       elsif Rex::Socket.support_ipv6? && Rex::Socket.is_ipv6?(host)
         # IPv6 stuff all untested
