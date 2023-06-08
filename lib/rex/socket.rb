@@ -157,7 +157,33 @@ module Socket
     (support_ipv6? && addr =~ MATCH_IPV6) || (addr =~ MATCH_IPV4)
   end
 
+  # Checks to see if an address is an IPv6 address and if so, converts it into its
+  # square bracket format for addressing as noted in RFC 6874 which states that an IPv6
+  # address literal in a URL is always embedded between [ and ]. Please also refer to
+  # RFC5952, RFC3986, and RFC6874 for more info.
   #
+  # RFC3986 section 3.2.2 specifically notes "A host identified by an Internet Protocol literal address, version 6
+  # [RFC3513] or later, is distinguished by enclosing the IP literal
+  # within square brackets ("[" and "]").  This is the only place where
+  # square bracket characters are allowed in the URI syntax."
+  #
+  # RFC6874 reinforces this in section 2 where it notes "In a URI, a literal IPv6 address
+  # is always embedded between '[' and ']'".
+  #
+  # @param host [String] IP address or hostname to convert to a URI authority.
+  # @param port [Integer] Port number to include within the URI authority.
+  # @return [String] Returns the URI authority string.
+  # @raise [ArgumentError] This function will raise an ArgumentError if the host parameter is not a String.
+  def self.to_authority(host, port=nil)
+    unless host.kind_of?(String)
+      raise ArgumentError.new("Expected a string for the host parameter!")
+    end
+    host = "[#{host}]" if is_ipv6?(host)
+    host += ":#{port}" if port
+    host
+  end
+
+
   # Return true if +addr+ is within the ranges specified in RFC1918, or
   # RFC5735/RFC3927
   #
