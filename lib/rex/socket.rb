@@ -864,17 +864,17 @@ protected
   # @param name [String] The hostname to lookup via the resolver
   # @param resolver [Rex::Proto::DNS::CachedResolver] Resolver to query for the name
   # @return [Array] Array mimicking the native gethostbyname return type
-  def self.rex_gethostbyname(name, resolver = @@resolver)
-    v4, v6 = self.rex_resolve_hostname(name, resolver)
+  def self.rex_gethostbyname(name, resolver: @@resolver)
+    v4, v6 = self.rex_resolve_hostname(name, resolver: resolver)
     # Build response array
     hostbyname = [name, []]
-    if v4[0]
+    unless v4.empty?
       hostbyname << ::Socket::AF_INET
-      hostbyname << self.addr_aton(v4[0].address.to_s)
-      hostbyname << self.addr_aton(v6[0].address.to_s) if v6[0]
+      hostbyname += v4.map(&:address).map(&:address)
+      hostbyname << v6[0].address.address unless v6.empty?
     else
       hostbyname << ::Socket::AF_INET6
-      hostbyname << self.addr_aton(v6[0].address.to_s)
+      hostbyname += v6.map(&:address).map(&:address)
     end
     return hostbyname
   end
@@ -883,25 +883,25 @@ protected
   # @param name [String] The hostname to lookup via the resolver
   # @param resolver [Rex::Proto::DNS::CachedResolver] Resolver to query for the name
   # @return [Array] Array mimicking the native getaddrinfo return type
-  def self.rex_getaddrinfo(name, resolver = @@resolver)
-    v4, v6 = self.rex_resolve_hostname(name, resolver)
+  def self.rex_getaddrinfo(name, resolver: @@resolver)
+    v4, v6 = self.rex_resolve_hostname(name, resolver: resolver)
     # Build response array
     getaddrinfo = []
     v4.each do |a4|
       getaddrinfo << Addrinfo.new(
-        self.to_sockaddr(a4.address.to_s,0),
+        self.to_sockaddr(a4.address.to_s, 0),
         ::Socket::AF_INET,
         ::Socket::SOCK_STREAM,
         ::Socket::IPPROTO_TCP,
-      ) if v4[0]
+      ) unless v4.empty?
     end
     v6.each do |a6|
       getaddrinfo << Addrinfo.new(
-        self.to_sockaddr(a6.address.to_s,0),
+        self.to_sockaddr(a6.address.to_s, 0),
         ::Socket::AF_INET6,
         ::Socket::SOCK_STREAM,
         ::Socket::IPPROTO_TCP,
-      ) if v6[0]
+      ) unless v6.empty?
     end
     return getaddrinfo
   end
@@ -910,7 +910,7 @@ protected
   # @param name [String] The hostname to lookup via the resolver
   # @param resolver [Rex::Proto::DNS::CachedResolver] Resolver to query for the name
   # @return [Array] Array of Dnsruby::Message responses for consumers to reformat
-  def self.rex_resolve_hostname(name, resolver = @@resolver)
+  def self.rex_resolve_hostname(name, resolver: @@resolver)
     raise ::SocketError.new(
       "Rex::Socket internal DNS resolution requires passing/setting a resolver"
     ) unless resolver
@@ -919,21 +919,25 @@ protected
     ) unless name.is_a?(String)
     # Pull both record types
     v4 = begin
-      resolver.send(name, ::Net::DNS::A).answer.select {|a|
-        a.type == Dnsruby::Types::A}.sort_by {|a| a.address.to_s
-      }
+      resolver.send(name, ::Net::DNS::A).answer.select do |a|
+        a.type == Dnsruby::Types::A
+      end.sort_by do |a|
+        self.addr_ntoi(a.address.address)
+      end
     rescue
-      [nil]
+      []
     end
     v6 = begin
-      resolver.send(name, ::Net::DNS::AAAA).answer.select {|a|
-        a.type == Dnsruby::Types::AAAA}.sort_by {|a| a.address.to_s
-      }
+      resolver.send(name, ::Net::DNS::AAAA).answer.select do |a|
+        a.type == Dnsruby::Types::AAAA
+      end.sort_by do |a|
+        self.addr_ntoi(a.address.address)
+      end
     rescue
-      [nil]
+      []
     end
     # Emulate ::Socket's error if no responses found
-    if !v4[0] and !v6[0]
+    if v4.empty? and v6.empty?
       raise ::SocketError.new('getaddrinfo: Name or service not known')
     end
     # Ensure response types (depending on underlying library used) provide required methods
