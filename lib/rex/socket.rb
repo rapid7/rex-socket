@@ -122,6 +122,9 @@ module Socket
   end
 
   #
+  # Cache our resolver
+  @@resolver = nil
+
   # Determine whether this is an IPv4 address
   #
   def self.is_ipv4?(addr)
@@ -216,7 +219,11 @@ module Socket
       return [hostname]
     end
 
-    res = ::Addrinfo.getaddrinfo(hostname, 0, ::Socket::AF_UNSPEC, ::Socket::SOCK_STREAM)
+    if @@resolver
+      res = self.rex_getaddrinfo(hostname)
+    else
+      res = ::Addrinfo.getaddrinfo(hostname, 0, ::Socket::AF_UNSPEC, ::Socket::SOCK_STREAM)
+    end
 
     res.map! do |address_info|
       address_info.ip_address
@@ -248,7 +255,7 @@ module Socket
       host, _ = host.split('%', 2)
     end
 
-    ::Socket.gethostbyname(host)
+    @@resolver ? self.rex_gethostbyname(host) : ::Socket.gethostbyname(host)
   end
 
   #
@@ -719,6 +726,15 @@ module Socket
     return [lsock, rsock]
   end
 
+  #
+  # Install Rex::Proto::DNS::CachedResolver, or similar, to pivot DNS
+  #
+  # @param res [Rex::Proto::DNS::CachedResolver] Resolver object to handle DNS requests
+  # @return [Rex::Proto::DNS::CachedResolver] The installed resolver
+  def self._install_global_resolver(res)
+    @@resolver = res
+  end
+
 
   ##
   #
@@ -844,6 +860,89 @@ protected
   attr_writer :context # :nodoc:
   attr_writer :ipv # :nodoc:
 
+  #
+  # @param name [String] The hostname to lookup via the resolver
+  # @param resolver [Rex::Proto::DNS::CachedResolver] Resolver to query for the name
+  # @return [Array] Array mimicking the native gethostbyname return type
+  def self.rex_gethostbyname(name, resolver: @@resolver)
+    v4, v6 = self.rex_resolve_hostname(name, resolver: resolver)
+    # Build response array
+    hostbyname = [name, []]
+    unless v4.empty?
+      hostbyname << ::Socket::AF_INET
+      hostbyname += v4.map(&:address).map(&:address)
+      hostbyname << v6[0].address.address unless v6.empty?
+    else
+      hostbyname << ::Socket::AF_INET6
+      hostbyname += v6.map(&:address).map(&:address)
+    end
+    return hostbyname
+  end
+
+  #
+  # @param name [String] The hostname to lookup via the resolver
+  # @param resolver [Rex::Proto::DNS::CachedResolver] Resolver to query for the name
+  # @return [Array] Array mimicking the native getaddrinfo return type
+  def self.rex_getaddrinfo(name, resolver: @@resolver)
+    v4, v6 = self.rex_resolve_hostname(name, resolver: resolver)
+    # Build response array
+    getaddrinfo = []
+    v4.each do |a4|
+      getaddrinfo << Addrinfo.new(
+        self.to_sockaddr(a4.address.to_s, 0),
+        ::Socket::AF_INET,
+        ::Socket::SOCK_STREAM,
+        ::Socket::IPPROTO_TCP,
+      ) unless v4.empty?
+    end
+    v6.each do |a6|
+      getaddrinfo << Addrinfo.new(
+        self.to_sockaddr(a6.address.to_s, 0),
+        ::Socket::AF_INET6,
+        ::Socket::SOCK_STREAM,
+        ::Socket::IPPROTO_TCP,
+      ) unless v6.empty?
+    end
+    return getaddrinfo
+  end
+
+
+  # @param name [String] The hostname to lookup via the resolver
+  # @param resolver [Rex::Proto::DNS::CachedResolver] Resolver to query for the name
+  # @return [Array] Array of Dnsruby::Message responses for consumers to reformat
+  def self.rex_resolve_hostname(name, resolver: @@resolver)
+    raise ::SocketError.new(
+      "Rex::Socket internal DNS resolution requires passing/setting a resolver"
+    ) unless resolver
+    raise ::SocketError.new(
+      "Rex::Socket internal DNS resolution requires passing a String name to resolve"
+    ) unless name.is_a?(String)
+    # Pull both record types
+    v4 = begin
+      resolver.send(name, ::Net::DNS::A).answer.select do |a|
+        a.type == Dnsruby::Types::A
+      end.sort_by do |a|
+        self.addr_ntoi(a.address.address)
+      end
+    rescue
+      []
+    end
+    v6 = begin
+      resolver.send(name, ::Net::DNS::AAAA).answer.select do |a|
+        a.type == Dnsruby::Types::AAAA
+      end.sort_by do |a|
+        self.addr_ntoi(a.address.address)
+      end
+    rescue
+      []
+    end
+    # Emulate ::Socket's error if no responses found
+    if v4.empty? and v6.empty?
+      raise ::SocketError.new('getaddrinfo: Name or service not known')
+    end
+    # Ensure response types (depending on underlying library used) provide required methods
+    return v4, v6
+  end
 end
 
 end
