@@ -672,37 +672,57 @@ module Socket
   #       is no concurrent use of the same locals and this is safe.
   def self.tcp_socket_pair
     lsock   = nil
+    last_child_error = nil
+    accept_timeout = 10
     rsock   = nil
     laddr   = '127.0.0.1'
     lport   = 0
     threads = []
     mutex   = ::Mutex.new
 
-    threads << Rex::ThreadFactory.spawn('TcpSocketPair', false) {
+    threads << Rex::ThreadFactory.spawn('TcpSocketPair', false) do
       server = nil
-      mutex.synchronize {
-        threads << Rex::ThreadFactory.spawn('TcpSocketPairClient', false) {
-          mutex.synchronize {
-            rsock = ::TCPSocket.new( laddr, lport )
-          }
-        }
-        server = ::TCPServer.new(laddr, 0)
-        if (server.getsockname =~ /127\.0\.0\.1:/)
-          # JRuby ridiculousness
-          caddr, lport = server.getsockname.split(":")
-          caddr = caddr[1,caddr.length]
-          lport = lport.to_i
-        else
-          # Sane implementations where Socket#getsockname returns a
-          # sockaddr
-          lport, caddr = ::Socket.unpack_sockaddr_in( server.getsockname )
+      begin
+        mutex.synchronize do
+          threads << Rex::ThreadFactory.spawn('TcpSocketPairClient', false) do
+            mutex.synchronize do
+              begin
+                rsock = ::TCPSocket.new( laddr, lport )
+              rescue => e
+                last_child_error = "#{e.class} - #{e.message}"
+                raise
+              end
+            end
+          end
+          server = ::TCPServer.new(laddr, 0)
+          if (server.getsockname =~ /127\.0\.0\.1:/)
+            # JRuby ridiculousness
+            caddr, lport = server.getsockname.split(":")
+            caddr = caddr[1,caddr.length]
+            lport = lport.to_i
+          else
+            # Sane implementations where Socket#getsockname returns a
+            # sockaddr
+            lport, caddr = ::Socket.unpack_sockaddr_in( server.getsockname )
+          end
         end
-      }
-      lsock, _ = server.accept
-      server.close
-    }
 
-    threads.each { |t| t.join }
+        readable, _writable, _errors = ::IO.select([server], nil, nil, accept_timeout)
+        if readable && readable.any?
+          lsock, _ = server.accept_nonblock
+        else
+          raise RuntimeError, "rsock didn't connect in #{accept_timeout} seconds"
+        end
+      ensure
+        server.close if server
+      end
+    end
+
+    threads.each.with_index do |thread, i|
+      thread.join
+    rescue => e
+      raise "Thread #{i} - error #{e} - last child error: #{last_child_error}"
+    end
 
     return [lsock, rsock]
   end
