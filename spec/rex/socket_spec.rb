@@ -4,6 +4,44 @@ require 'spec_helper'
 
 RSpec.describe Rex::Socket do
 
+  describe '.tcp_socket_pair' do
+    let(:mock_thread_factory) do
+      double :mock_thread_factory
+    end
+
+    before(:each) do
+      stub_const('Rex::ThreadFactory', mock_thread_factory)
+      # Fallback implementation from https://github.com/rapid7/metasploit-framework/blob/30e66c43a4932df922d7f1d986fb98387bd0ab1a/lib/rex/thread_factory.rb#L27-L37
+      allow(mock_thread_factory).to receive(:spawn) do |name, crit, *args, &block|
+        if block
+          t = ::Thread.new(*args){ |*args_copy| block.call(*args_copy) }
+        else
+          t = ::Thread.new(*args)
+        end
+        t[:tm_name] = name
+        t[:tm_crit] = crit
+        t[:tm_time] = ::Time.now
+        t[:tm_call] = caller
+        t
+      end
+    end
+
+    it 'creates two socket pairs' do
+      lsock, rsock = described_class.tcp_socket_pair
+      lsock.extend(Rex::IO::Stream)
+      rsock.extend(Rex::IO::Stream)
+
+      expect(lsock.closed?).to be(false)
+      expect(rsock.closed?).to be(false)
+
+      lsock.close
+      rsock.close
+
+      expect(lsock.closed?).to be(true)
+      expect(rsock.closed?).to be(true)
+    end
+  end
+
   describe '.addr_itoa' do
 
     context 'with explicit v6' do
