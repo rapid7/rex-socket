@@ -1,0 +1,15 @@
+---
+info:
+  title: Rex Socket
+  description: The Rex Socket Abstraction Library
+  x-cortex-git:
+    github:
+      alias: r7org
+      repository: rapid7/rex-socket
+  x-cortex-tag: rex-socket
+  x-cortex-type: service
+  x-cortex-domain-parents:
+  - tag: metasploit
+openapi: 3.0.1
+servers:
+- url: "/"
