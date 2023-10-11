@@ -258,6 +258,28 @@ module Socket
     @@resolver ? self.rex_gethostbyname(host) : ::Socket.gethostbyname(host)
   end
 
+  def self.getresources(name, typeclass)
+    typeclass = typeclass.upcase
+    #return self.rex_getresources(name, typeclass) if @@resolver
+
+    attribute = {
+      CNAME: :name,
+      MX:    :exchange,
+      NS:    :name,
+      PTR:   :name,
+      SOA:   :mname,
+      SRV:   :target
+    }[typeclass]
+    if attribute.nil?
+      raise ArgumentError, 'Invalid typeclass'
+    end
+    const = Resolv::DNS::Resource::IN.const_get(typeclass)
+
+    dns = Resolv::DNS.new
+    resources = dns.getresources(name, const)
+    resources.map(&attribute).map(&:to_s)
+  end
+
   #
   # Create a sockaddr structure using the supplied IP address, port, and
   # address family
@@ -962,6 +984,15 @@ protected
     end
     # Ensure response types (depending on underlying library used) provide required methods
     return v4, v6
+  end
+
+  def self.rex_getresources(name, typeclass, resolver: @@resolver)
+    raise ::SocketError.new(
+      "Rex::Socket internal DNS resolution requires passing/setting a resolver"
+    ) unless resolver
+    raise ::SocketError.new(
+      "Rex::Socket internal DNS resolution requires passing a String name to resolve"
+    ) unless name.is_a?(String)
   end
 end
 
