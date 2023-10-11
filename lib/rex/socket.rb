@@ -259,9 +259,9 @@ module Socket
   end
 
   def self.getresources(name, typeclass)
-    typeclass = typeclass.upcase
-    #return self.rex_getresources(name, typeclass) if @@resolver
+    return self.rex_getresources(name, typeclass) if @@resolver
 
+    typeclass = typeclass.upcase
     attribute = {
       CNAME: :name,
       MX:    :exchange,
@@ -993,6 +993,30 @@ protected
     raise ::SocketError.new(
       "Rex::Socket internal DNS resolution requires passing a String name to resolve"
     ) unless name.is_a?(String)
+
+    typeclass = typeclass.upcase
+    attribute = {
+      CNAME: :domainname,
+      MX:    :exchange,
+      NS:    :domainname,
+      PTR:   :domainname,
+      SOA:   :mname,
+      SRV:   :target
+    }[typeclass]
+    if attribute.nil?
+      raise ArgumentError, 'Invalid typeclass'
+    end
+    const = ::Net::DNS.const_get(typeclass)
+
+    resources = begin
+      resolver.send(name, const).answer.select do |a|
+        a.type == const
+      end.map(&attribute).map(&:to_s)
+    rescue
+      []
+    end
+
+    resources
   end
 end
 
