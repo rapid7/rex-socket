@@ -258,6 +258,14 @@ module Socket
     @@resolver ? self.rex_gethostbyname(host) : ::Socket.gethostbyname(host)
   end
 
+  #
+  # Wrapper for Resolv::DNS.getresources which normalizes the return value to a
+  # list of hostnames regardless of the resource class.
+  #
+  # @param name [String] The name to lookup.
+  # @param typeclass [Symbol] The resource class to lookup, e.g. CNAME, MX, etc.
+  # @raises ArgumentError An argument error is raised when the typeclass is invalid.
+  # @return [Array<String>] The hostnames that were returned by the query.
   def self.getresources(name, typeclass)
     return self.rex_getresources(name, typeclass) if @@resolver
 
