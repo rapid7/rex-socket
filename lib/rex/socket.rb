@@ -270,16 +270,9 @@ module Socket
     return self.rex_getresources(name, typeclass) if @@resolver
 
     typeclass = typeclass.upcase
-    attribute = {
-      CNAME: :name,
-      MX:    :exchange,
-      NS:    :name,
-      PTR:   :name,
-      SOA:   :mname,
-      SRV:   :target
-    }[typeclass]
+    attribute = DNS_RESOURCE_ATTRIBUTE_NAMES[typeclass]
     if attribute.nil?
-      raise ArgumentError, 'Invalid typeclass'
+      raise ArgumentError, "Invalid typeclass: #{typeclass}"
     end
     const = Resolv::DNS::Resource::IN.const_get(typeclass)
 
@@ -1003,16 +996,9 @@ protected
     ) unless name.is_a?(String)
 
     typeclass = typeclass.upcase
-    attribute = {
-      CNAME: :domainname,
-      MX:    :exchange,
-      NS:    :domainname,
-      PTR:   :domainname,
-      SOA:   :mname,
-      SRV:   :target
-    }[typeclass]
+    attribute = REX_DNS_RESOURCE_ATTRIBUTE_NAMES[typeclass]
     if attribute.nil?
-      raise ArgumentError, 'Invalid typeclass'
+      raise ArgumentError, "Invalid typeclass: #{typeclass}"
     end
     const = ::Net::DNS.const_get(typeclass)
 
@@ -1026,6 +1012,26 @@ protected
 
     resources
   end
+
+  DNS_RESOURCE_ATTRIBUTE_NAMES = {
+    CNAME: :name,
+    MX:    :exchange,
+    NS:    :name,
+    PTR:   :name,
+    SOA:   :mname,
+    SRV:   :target
+  }.freeze
+  private_constant :DNS_RESOURCE_ATTRIBUTE_NAMES
+
+  REX_DNS_RESOURCE_ATTRIBUTE_NAMES = {
+    CNAME: :domainname,
+    MX:    :exchange,
+    NS:    :domainname,
+    PTR:   :domainname,
+    SOA:   :mname,
+    SRV:   :target
+  }.freeze
+  private_constant :REX_DNS_RESOURCE_ATTRIBUTE_NAMES
 end
 
 end
