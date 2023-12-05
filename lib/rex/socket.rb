@@ -259,6 +259,29 @@ module Socket
   end
 
   #
+  # Wrapper for Resolv::DNS.getresources which normalizes the return value to a
+  # list of hostnames regardless of the resource class.
+  #
+  # @param name [String] The name to lookup.
+  # @param typeclass [Symbol] The resource class to lookup, e.g. CNAME, MX, etc.
+  # @raises ArgumentError An argument error is raised when the typeclass is invalid.
+  # @return [Array<String>] The hostnames that were returned by the query.
+  def self.getresources(name, typeclass)
+    return self.rex_getresources(name, typeclass) if @@resolver
+
+    typeclass = typeclass.upcase
+    attribute = DNS_RESOURCE_ATTRIBUTE_NAMES[typeclass]
+    if attribute.nil?
+      raise ArgumentError, "Invalid typeclass: #{typeclass}"
+    end
+    const = Resolv::DNS::Resource::IN.const_get(typeclass)
+
+    dns = Resolv::DNS.new
+    resources = dns.getresources(name, const)
+    resources.map(&attribute).map(&:to_s)
+  end
+
+  #
   # Create a sockaddr structure using the supplied IP address, port, and
   # address family
   #
@@ -963,6 +986,52 @@ protected
     # Ensure response types (depending on underlying library used) provide required methods
     return v4, v6
   end
+
+  def self.rex_getresources(name, typeclass, resolver: @@resolver)
+    raise ::SocketError.new(
+      "Rex::Socket internal DNS resolution requires passing/setting a resolver"
+    ) unless resolver
+    raise ::SocketError.new(
+      "Rex::Socket internal DNS resolution requires passing a String name to resolve"
+    ) unless name.is_a?(String)
+
+    typeclass = typeclass.upcase
+    attribute = REX_DNS_RESOURCE_ATTRIBUTE_NAMES[typeclass]
+    if attribute.nil?
+      raise ArgumentError, "Invalid typeclass: #{typeclass}"
+    end
+    const = ::Net::DNS.const_get(typeclass)
+
+    resources = begin
+      resolver.send(name, const).answer.select do |a|
+        a.type == const
+      end.map(&attribute).map(&:to_s)
+    rescue
+      []
+    end
+
+    resources
+  end
+
+  DNS_RESOURCE_ATTRIBUTE_NAMES = {
+    CNAME: :name,
+    MX:    :exchange,
+    NS:    :name,
+    PTR:   :name,
+    SOA:   :mname,
+    SRV:   :target
+  }.freeze
+  private_constant :DNS_RESOURCE_ATTRIBUTE_NAMES
+
+  REX_DNS_RESOURCE_ATTRIBUTE_NAMES = {
+    CNAME: :domainname,
+    MX:    :exchange,
+    NS:    :domainname,
+    PTR:   :domainname,
+    SOA:   :mname,
+    SRV:   :target
+  }.freeze
+  private_constant :REX_DNS_RESOURCE_ATTRIBUTE_NAMES
 end
 
 end
