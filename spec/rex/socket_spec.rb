@@ -242,6 +242,13 @@ RSpec.describe Rex::Socket do
       end
     end
 
+    context 'with multiple IPv4 addresses' do
+      let(:try) { "127.0.0.1\n127.0.0.1" }
+      it 'should return false' do
+        expect(addr).to eq false
+      end
+    end
+
     context 'with an IPv6 address' do
       let(:try) { '::1' }
       it 'should return false' do
@@ -280,6 +287,13 @@ RSpec.describe Rex::Socket do
       let(:try) { '::' }
       it 'should return true' do
         expect(addr).to eq true
+      end
+    end
+
+    context 'with multiple IPv6 addresses' do
+      let(:try) { "::1\n::1" }
+      it 'should return false' do
+        expect(addr).to eq false
       end
     end
 
