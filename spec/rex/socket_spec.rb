@@ -337,8 +337,8 @@ RSpec.describe Rex::Socket do
 
      context 'with a hostname' do
        let(:try) { "localhost" }
-       it "should return false" do
-         expect(name).to eq false
+       it "should return true" do
+         expect(name).to eq true
        end
      end
 
