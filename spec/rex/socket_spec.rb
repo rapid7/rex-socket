@@ -242,6 +242,22 @@ RSpec.describe Rex::Socket do
       end
     end
 
+    context 'with multiple IPv4 addresses' do
+      context 'separated by newlines' do
+        let(:try) { "127.0.0.1\n127.0.0.1" }
+        it 'should return false' do
+          expect(addr).to eq false
+        end
+      end
+
+      context 'separated by spaces' do
+        let(:try) { "127.0.0.1 127.0.0.1" }
+        it 'should return false' do
+          expect(addr).to eq false
+        end
+      end
+    end
+
     context 'with an IPv6 address' do
       let(:try) { '::1' }
       it 'should return false' do
@@ -283,6 +299,22 @@ RSpec.describe Rex::Socket do
       end
     end
 
+    context 'with multiple IPv6 addresses' do
+      context 'separated by newlines' do
+        let(:try) { "::1\n::1" }
+        it 'should return false' do
+          expect(addr).to eq false
+        end
+      end
+
+      context 'separated by spaces' do
+        let(:try) { "::1 ::1" }
+        it 'should return false' do
+          expect(addr).to eq false
+        end
+      end
+    end
+
     context 'with a hostname' do
       let(:try) { "localhost" }
       it "should return false" do
@@ -296,5 +328,49 @@ RSpec.describe Rex::Socket do
         expect(addr).to eq false
       end
     end
+  end
+
+  describe '.is_name?' do
+     subject(:name) do
+      described_class.is_name?(try)
+     end
+
+     context 'with a hostname' do
+       let(:try) { "localhost" }
+       it "should return true" do
+         expect(name).to eq true
+       end
+     end
+
+    context 'with a fully qualified domain name' do
+      let(:try) { "www.metasploit.com" }
+      it "should return true" do
+        expect(name).to eq true
+      end
+    end
+
+    context 'with multiple fully qualified domain names' do
+      context 'separated by newlines' do
+        let(:try) { "www.metasploit.com\nmetasploit.com" }
+        it 'should return false' do
+          expect(name).to eq false
+        end
+      end
+
+      context 'separated by spaces' do
+        let(:try) { "www.metasploit.com metasploit.com" }
+        it 'should return false' do
+          expect(name).to eq false
+        end
+      end
+    end
+
+     context 'international domain names' do
+       # 搾取の translation: of exploitation (metasploit)
+       let(:try) { "xn--u9jw97h8hl.com" }
+       it 'should return true' do
+         expect(name).to eq true
+       end
+     end
   end
 end

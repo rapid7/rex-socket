@@ -84,6 +84,9 @@ module Socket
   # Common Regular Expressions
   #
 
+  # see: https://debugpointer.com/regex/regex-for-dns-name
+  MATCH_DNS_NAME = /^(((?!-))(xn--)?([a-z0-9][a-z0-9\-]{0,59})?[a-z0-9]\.)*(xn--)?([a-z0-9\-]{1,61}|[a-z0-9-]{1,30}\.[a-z]{2,})$/i
+
   MATCH_IPV6 = /^\s*((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?\s*$/
 
   MATCH_IPV4 = /^\s*(?:(?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.](?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.](?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.](?:25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2}))\s*$/
@@ -125,24 +128,33 @@ module Socket
   # Cache our resolver
   @@resolver = nil
 
+  #
+  # Determine whether this is a valid DNS name without trying to resolve it
+  #
+  def self.is_name?(name)
+    return false if name.length > 253
+    name =~ MATCH_DNS_NAME ? (name =~ /\s/).nil? : false
+  end
+
+  #
   # Determine whether this is an IPv4 address
   #
   def self.is_ipv4?(addr)
-    addr =~ MATCH_IPV4 ? true : false
+    addr =~ MATCH_IPV4 ? (addr =~ /\s/).nil? : false
   end
 
   #
   # Determine whether this is an IPv6 address
   #
   def self.is_ipv6?(addr)
-    addr =~ MATCH_IPV6 ? true : false
+    addr =~ MATCH_IPV6 ? (addr =~ /\s/).nil? : false
   end
 
   #
   # Determine whether this is a MAC address
   #
   def self.is_mac_addr?(addr)
-    !(addr =~ MATCH_MAC_ADDR).nil?
+    addr =~ MATCH_MAC_ADDR ? (addr =~ /\s/).nil? : false
   end
 
   #
@@ -157,7 +169,7 @@ module Socket
   # Checks to see if the supplied address is in "dotted" form
   #
   def self.dotted_ip?(addr)
-    (support_ipv6? && addr =~ MATCH_IPV6) || (addr =~ MATCH_IPV4)
+    (support_ipv6? && self.is_ipv6?(addr)) || self.is_ipv4?(addr)
   end
 
   # Checks to see if an address is an IPv6 address and if so, converts it into its
