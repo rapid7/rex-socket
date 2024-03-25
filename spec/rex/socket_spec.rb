@@ -342,6 +342,13 @@ RSpec.describe Rex::Socket do
        end
      end
 
+    context 'with a name containing underscores' do
+      let(:try) { '_ldap._tcp.msflab.local' }
+      it 'should return true' do
+        expect(name).to eq true
+      end
+    end
+
     context 'with a fully qualified domain name' do
       let(:try) { "www.metasploit.com" }
       it "should return true" do
