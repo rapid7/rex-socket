@@ -133,7 +133,7 @@ module Socket
   #
   def self.is_name?(name)
     return false if name.length > 253
-    name =~ MATCH_DNS_NAME ? (name =~ /\s/).nil? : false
+    name.delete_suffix('.') =~ MATCH_DNS_NAME ? (name =~ /\s/).nil? : false
   end
 
   #

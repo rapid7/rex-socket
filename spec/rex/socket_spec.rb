@@ -350,9 +350,18 @@ RSpec.describe Rex::Socket do
     end
 
     context 'with a fully qualified domain name' do
-      let(:try) { "www.metasploit.com" }
-      it "should return true" do
-        expect(name).to eq true
+      context 'and a trailing dot' do
+        let(:try) { "www.metasploit.com." }
+        it "should return true" do
+          expect(name).to eq true
+        end
+      end
+
+      context 'and no trailing dot' do
+        let(:try) { "www.metasploit.com" }
+        it "should return true" do
+          expect(name).to eq true
+        end
       end
     end
 
