@@ -4,6 +4,7 @@ require 'socket'
 require 'thread'
 require 'resolv'
 require 'rex/exceptions'
+require 'dnsruby'
 
 module Rex
 
@@ -974,21 +975,21 @@ protected
     ) unless name.is_a?(String)
     # Pull both record types
     v4 = begin
-      resolver.send(name, ::Net::DNS::A).answer.select do |a|
+      resolver.send(name, ::Dnsruby::Types::A).answer.select do |a|
         a.type == Dnsruby::Types::A
       end.sort_by do |a|
         self.addr_ntoi(a.address.address)
       end
-    rescue
+    rescue StandardError
       []
     end
     v6 = begin
-      resolver.send(name, ::Net::DNS::AAAA).answer.select do |a|
+      resolver.send(name, Dnsruby::Types::AAAA).answer.select do |a|
         a.type == Dnsruby::Types::AAAA
       end.sort_by do |a|
         self.addr_ntoi(a.address.address)
       end
-    rescue
+    rescue StandardError
       []
     end
     # Emulate ::Socket's error if no responses found
@@ -1012,7 +1013,7 @@ protected
     if attribute.nil?
       raise ArgumentError, "Invalid typeclass: #{typeclass}"
     end
-    const = ::Net::DNS.const_get(typeclass)
+    const = Dnsruby::Types.const_get(typeclass)
 
     resources = begin
       resolver.send(name, const).answer.select do |a|
