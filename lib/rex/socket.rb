@@ -940,26 +940,42 @@ protected
   # @param resolver [Rex::Proto::DNS::CachedResolver] Resolver to query for the name
   # @return [Array] Array mimicking the native getaddrinfo return type
   def self.rex_getaddrinfo(name, resolver: @@resolver)
-    v4, v6 = self.rex_resolve_hostname(name, resolver: resolver)
-    # Build response array
     getaddrinfo = []
-    v4.each do |a4|
+
+    if name =~ /^\d+$/ && name.to_i.between?(0, 0xffffffff)
       getaddrinfo << Addrinfo.new(
-        self.to_sockaddr(a4.address.to_s, 0),
+        self.to_sockaddr(name.to_i, 0),
         ::Socket::AF_INET,
         ::Socket::SOCK_STREAM,
-        ::Socket::IPPROTO_TCP,
-      ) unless v4.empty?
-    end
-    v6.each do |a6|
+        ::Socket::IPPROTO_TCP
+      )
+    elsif name =~ /^0x[0-9a-fA-F]+$/ && name.to_i(16).between?(0, 0xffffffff)
       getaddrinfo << Addrinfo.new(
-        self.to_sockaddr(a6.address.to_s, 0),
-        ::Socket::AF_INET6,
+        self.to_sockaddr(name.to_i(16), 0),
+        ::Socket::AF_INET,
         ::Socket::SOCK_STREAM,
-        ::Socket::IPPROTO_TCP,
-      ) unless v6.empty?
+        ::Socket::IPPROTO_TCP
+      )
+    else
+      v4, v6 = self.rex_resolve_hostname(name, resolver: resolver)
+      v4.each do |a4|
+        getaddrinfo << Addrinfo.new(
+          self.to_sockaddr(a4.address.to_s, 0),
+          ::Socket::AF_INET,
+          ::Socket::SOCK_STREAM,
+          ::Socket::IPPROTO_TCP
+        ) unless v4.empty?
+      end
+      v6.each do |a6|
+        getaddrinfo << Addrinfo.new(
+          self.to_sockaddr(a6.address.to_s, 0),
+          ::Socket::AF_INET6,
+          ::Socket::SOCK_STREAM,
+          ::Socket::IPPROTO_TCP
+        ) unless v6.empty?
+      end
     end
-    return getaddrinfo
+    getaddrinfo
   end
 
 

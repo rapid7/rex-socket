@@ -198,6 +198,37 @@ RSpec.describe Rex::Socket do
 
       it { expect { subject }.to raise_exception(::SocketError, 'getaddrinfo: nodename nor servname provided, or not known') }
     end
+
+    context 'when passed in a numeric hostname' do
+      let(:mock_resolver) { double('Resolver', send: nil) }
+
+      before(:each) do
+        described_class._install_global_resolver(mock_resolver)
+        expect(mock_resolver).not_to receive(:send)
+      end
+
+      context 'when passed in a decimal hostname' do
+        let(:hostname) { '0' }
+        let(:response_addresses) { ['0.0.0.0'] }
+
+        it { is_expected.to be_an(Array) }
+        it { expect(subject.size).to eq(1) }
+        it "should return the ASCII addresses" do
+          expect(subject).to include("0.0.0.0")
+        end
+      end
+
+      context 'when passed in a decimal hostname' do
+        let(:hostname) { '0x0' }
+        let(:response_addresses) { ['0.0.0.0'] }
+
+        it { is_expected.to be_an(Array) }
+        it { expect(subject.size).to eq(1) }
+        it "should return the ASCII addresses" do
+          expect(subject).to include("0.0.0.0")
+        end
+      end
+    end
   end
 
   describe '.portspec_to_portlist' do
