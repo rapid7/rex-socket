@@ -940,42 +940,30 @@ protected
   # @param resolver [Rex::Proto::DNS::CachedResolver] Resolver to query for the name
   # @return [Array] Array mimicking the native getaddrinfo return type
   def self.rex_getaddrinfo(name, resolver: @@resolver)
-    getaddrinfo = []
+    v4_sockaddrs = []
+    v6_sockaddrs = []
 
     if name =~ /\A\d+\Z/ && name.to_i.between?(0, 0xffffffff)
-      getaddrinfo << Addrinfo.new(
-        self.to_sockaddr(name.to_i, 0),
-        ::Socket::AF_INET,
-        ::Socket::SOCK_STREAM,
-        ::Socket::IPPROTO_TCP
-      )
+      v4_sockaddrs << self.to_sockaddr(name.to_i, 0)
     elsif name =~ /\A0x[0-9a-fA-F]+\Z/ && name.to_i(16).between?(0, 0xffffffff)
-      getaddrinfo << Addrinfo.new(
-        self.to_sockaddr(name.to_i(16), 0),
-        ::Socket::AF_INET,
-        ::Socket::SOCK_STREAM,
-        ::Socket::IPPROTO_TCP
-      )
+      v4_sockaddrs << self.to_sockaddr(name.to_i(16), 0)
+    elsif self.is_ipv4?(name)
+      v4_sockaddrs << self.to_sockaddr(name, 0)
+    elsif self.is_ipv6?(name)
+      v6_sockaddrs << self.to_sockaddr(name, 0)
     else
       v4, v6 = self.rex_resolve_hostname(name, resolver: resolver)
       v4.each do |a4|
-        getaddrinfo << Addrinfo.new(
-          self.to_sockaddr(a4.address.to_s, 0),
-          ::Socket::AF_INET,
-          ::Socket::SOCK_STREAM,
-          ::Socket::IPPROTO_TCP
-        ) unless v4.empty?
+        v4_sockaddrs << self.to_sockaddr(a4.address.to_s, 0)
       end
       v6.each do |a6|
-        getaddrinfo << Addrinfo.new(
-          self.to_sockaddr(a6.address.to_s, 0),
-          ::Socket::AF_INET6,
-          ::Socket::SOCK_STREAM,
-          ::Socket::IPPROTO_TCP
-        ) unless v6.empty?
+        v6_sockaddrs << self.to_sockaddr(a6.address.to_s, 0)
       end
     end
-    getaddrinfo
+
+    (v4_sockaddrs.map { |sa| [sa, ::Socket::AF_INET] } + v6_sockaddrs.map { |sa| [sa, ::Socket::AF_INET6] }).map do |sa, family|
+      Addrinfo.new(sa, family, ::Socket::SOCK_STREAM, ::Socket::IPPROTO_TCP)
+    end
   end
 
 

@@ -450,6 +450,34 @@ RSpec.describe Rex::Socket do
       end
     end
 
+    context 'with an IPv4 name' do
+      let(:hostname) { '127.0.0.1' }
+      it 'should not call .rex_resolve_hostname' do
+        expect(described_class).to_not receive(:rex_resolve_hostname)
+        subject
+      end
+
+      it 'should return one IPv4 address' do
+        expect(subject).to match_array([
+          have_attributes(ip_address: '127.0.0.1', afamily: ::Socket::AF_INET, socktype: ::Socket::SOCK_STREAM, protocol: ::Socket::IPPROTO_TCP),
+        ])
+      end
+    end
+
+    context 'with an IPv6 name' do
+      let(:hostname) { '::1' }
+      it 'should not call .rex_resolve_hostname' do
+        expect(described_class).to_not receive(:rex_resolve_hostname)
+        subject
+      end
+
+      it 'should return one IPv6 address' do
+        expect(subject).to match_array([
+          have_attributes(ip_address: '::1', afamily: ::Socket::AF_INET6, socktype: ::Socket::SOCK_STREAM, protocol: ::Socket::IPPROTO_TCP),
+        ])
+      end
+    end
+
     context 'with a decimal name' do
       let(:hostname) { '255' }
       it 'should not call .rex_resolve_hostname' do
