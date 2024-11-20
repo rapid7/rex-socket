@@ -942,14 +942,14 @@ protected
   def self.rex_getaddrinfo(name, resolver: @@resolver)
     getaddrinfo = []
 
-    if name =~ /^\d+$/ && name.to_i.between?(0, 0xffffffff)
+    if name =~ /\A\d+\Z/ && name.to_i.between?(0, 0xffffffff)
       getaddrinfo << Addrinfo.new(
         self.to_sockaddr(name.to_i, 0),
         ::Socket::AF_INET,
         ::Socket::SOCK_STREAM,
         ::Socket::IPPROTO_TCP
       )
-    elsif name =~ /^0x[0-9a-fA-F]+$/ && name.to_i(16).between?(0, 0xffffffff)
+    elsif name =~ /\A0x[0-9a-fA-F]+\Z/ && name.to_i(16).between?(0, 0xffffffff)
       getaddrinfo << Addrinfo.new(
         self.to_sockaddr(name.to_i(16), 0),
         ::Socket::AF_INET,
