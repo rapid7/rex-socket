@@ -198,6 +198,41 @@ RSpec.describe Rex::Socket do
 
       it { expect { subject }.to raise_exception(::SocketError, 'getaddrinfo: nodename nor servname provided, or not known') }
     end
+
+    context 'when passed in a numeric hostname' do
+      let(:mock_resolver) { double('Resolver', send: nil) }
+
+      before(:each) do
+        described_class._install_global_resolver(mock_resolver)
+        expect(mock_resolver).not_to receive(:send)
+      end
+
+      after(:each) do
+        described_class._install_global_resolver(nil)
+      end
+
+      context 'when passed in a decimal hostname' do
+        let(:hostname) { '0' }
+        let(:response_addresses) { ['0.0.0.0'] }
+
+        it { is_expected.to be_an(Array) }
+        it { expect(subject.size).to eq(1) }
+        it "should return the ASCII addresses" do
+          expect(subject).to include("0.0.0.0")
+        end
+      end
+
+      context 'when passed in a decimal hostname' do
+        let(:hostname) { '0x0' }
+        let(:response_addresses) { ['0.0.0.0'] }
+
+        it { is_expected.to be_an(Array) }
+        it { expect(subject.size).to eq(1) }
+        it "should return the ASCII addresses" do
+          expect(subject).to include("0.0.0.0")
+        end
+      end
+    end
   end
 
   describe '.portspec_to_portlist' do
@@ -388,5 +423,103 @@ RSpec.describe Rex::Socket do
          expect(name).to eq true
        end
      end
+  end
+
+  describe '.rex_getaddrinfo' do
+    subject(:addrinfos) do
+      described_class.rex_getaddrinfo(hostname)
+    end
+
+    context 'with a hostname' do
+      let(:hostname) { 'localhost' }
+      it 'should call .rex_resolve_hostname' do
+        expect(described_class).to receive(:rex_resolve_hostname).with(hostname, {resolver: nil}).and_return([ [], [] ])
+        subject
+      end
+
+      it 'should return IPv4 and IPv6 addresses' do
+        expect(described_class).to receive(:rex_resolve_hostname).and_return([
+          [Dnsruby::RR::IN::A.new(address: '127.0.0.1')],
+          [Dnsruby::RR::IN::AAAA.new(address: '::1')]
+        ])
+
+        expect(subject).to match_array([
+          have_attributes(ip_address: '127.0.0.1', afamily: ::Socket::AF_INET, socktype: ::Socket::SOCK_STREAM, protocol: ::Socket::IPPROTO_TCP),
+          have_attributes(ip_address: '::1', afamily: ::Socket::AF_INET6, socktype: ::Socket::SOCK_STREAM, protocol: ::Socket::IPPROTO_TCP)
+        ])
+      end
+    end
+
+    context 'with an IPv4 name' do
+      let(:hostname) { '127.0.0.1' }
+      it 'should not call .rex_resolve_hostname' do
+        expect(described_class).to_not receive(:rex_resolve_hostname)
+        subject
+      end
+
+      it 'should return one IPv4 address' do
+        expect(subject).to match_array([
+          have_attributes(ip_address: '127.0.0.1', afamily: ::Socket::AF_INET, socktype: ::Socket::SOCK_STREAM, protocol: ::Socket::IPPROTO_TCP),
+        ])
+      end
+    end
+
+    context 'with an IPv6 name' do
+      let(:hostname) { '::1' }
+      it 'should not call .rex_resolve_hostname' do
+        expect(described_class).to_not receive(:rex_resolve_hostname)
+        subject
+      end
+
+      it 'should return one IPv6 address' do
+        expect(subject).to match_array([
+          have_attributes(ip_address: '::1', afamily: ::Socket::AF_INET6, socktype: ::Socket::SOCK_STREAM, protocol: ::Socket::IPPROTO_TCP),
+        ])
+      end
+    end
+
+    context 'with a decimal name' do
+      let(:hostname) { '255' }
+      it 'should not call .rex_resolve_hostname' do
+        expect(described_class).to_not receive(:rex_resolve_hostname)
+        subject
+      end
+
+      it 'should return one IPv4 address' do
+        expect(subject).to match_array([
+          have_attributes(ip_address: '0.0.0.255', afamily: ::Socket::AF_INET, socktype: ::Socket::SOCK_STREAM, protocol: ::Socket::IPPROTO_TCP),
+        ])
+      end
+    end
+
+    context 'with an invalid decimal name' do
+      let(:hostname) { '4294967296' }
+      it 'should call .rex_resolve_hostname' do
+        expect(described_class).to receive(:rex_resolve_hostname).with(hostname, {resolver: nil}).and_raise(::SocketError.new('getaddrinfo: Name or service not known'))
+        expect { subject }.to raise_error(::SocketError)
+      end
+    end
+
+    context 'with a hexadecimal name' do
+      let(:hostname) { '0xff' }
+      it 'should not call .rex_resolve_hostname' do
+        expect(described_class).to_not receive(:rex_resolve_hostname)
+        subject
+      end
+
+      it 'should return one IPv4 address' do
+        expect(subject).to match_array([
+          have_attributes(ip_address: '0.0.0.255', afamily: ::Socket::AF_INET, socktype: ::Socket::SOCK_STREAM, protocol: ::Socket::IPPROTO_TCP),
+        ])
+      end
+    end
+
+    context 'with an invalid hexadecimal name' do
+      let(:hostname) { '0x100000000' }
+      it 'should call .rex_resolve_hostname' do
+        expect(described_class).to receive(:rex_resolve_hostname).with(hostname, {resolver: nil}).and_raise(::SocketError.new('getaddrinfo: Name or service not known'))
+        expect { subject }.to raise_error(::SocketError)
+      end
+    end
   end
 end
