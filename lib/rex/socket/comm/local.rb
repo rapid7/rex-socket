@@ -9,6 +9,7 @@ require 'rex/socket/udp'
 require 'rex/socket/sctp'
 require 'rex/socket/sctp_server'
 require 'rex/socket/ip'
+require 'rex/socket/proxies'
 require 'timeout'
 
 ###
@@ -353,7 +354,7 @@ class Rex::Socket::Comm::Local
 
   def self.proxy(sock, type, host, port)
     case type.downcase
-    when 'sapni'
+    when Rex::Socket::Proxies::ProxyType::SAPNI
       packet_type = 'NI_ROUTE'
       route_info_version = 2
       ni_version = 39
@@ -422,7 +423,7 @@ class Rex::Socket::Comm::Local
         raise Rex::ConnectionProxyError.new(host, port, type, "Connection to #{host}:#{port} failed (Unknown fail)")
       end
 
-    when 'http'
+    when Rex::Socket::Proxies::ProxyType::HTTP
       setup = "CONNECT #{host}:#{port} HTTP/1.0\r\n\r\n"
       size = sock.put(setup)
       if size != setup.length
@@ -445,7 +446,7 @@ class Rex::Socket::Comm::Local
       if resp.code != 200
         raise Rex::ConnectionProxyError.new(host, port, type, "The proxy returned a non-OK response"), caller
       end
-    when 'socks4'
+    when Rex::Socket::Proxies::ProxyType::SOCKS4
       supports_ipv6 = false
       setup = [4,1,port.to_i].pack('CCn') + Rex::Socket.resolv_nbo(host, supports_ipv6) + Rex::Text.rand_text_alpha(rand(8)+1) + "\x00"
       size = sock.put(setup)
@@ -465,7 +466,7 @@ class Rex::Socket::Comm::Local
       if ret[1,1] != "\x5a"
         raise Rex::ConnectionProxyError.new(host, port, type, "Proxy responded with error code #{ret[0,1].unpack("C")[0]}"), caller
       end
-    when 'socks5'
+    when Rex::Socket::Proxies::ProxyType::SOCKS5
       auth_methods = [5,1,0].pack('CCC')
       size = sock.put(auth_methods)
       if size != auth_methods.length
