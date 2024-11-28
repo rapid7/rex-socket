@@ -1,5 +1,6 @@
 # -*- coding: binary -*-
 require 'rex/socket'
+require 'rex/socket/proxies'
 
 ###
 #
@@ -163,7 +164,7 @@ class Rex::Socket::Parameters
     end
 
     if hash['Proxies']
-      self.proxies = hash['Proxies'].split(',').map{|a| a.strip}.map{|a| a.split(':').map{|b| b.strip}}
+      self.proxies = Rex::Socket::Proxies.parse(hash['Proxies'])
     end
 
     # The protocol this socket will be using
