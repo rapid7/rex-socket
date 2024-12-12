@@ -262,7 +262,7 @@ class Rex::Socket::Comm::Local
         end
 
         ip6_scope_idx = 0
-        ip   = param.peerhost
+        ip   = Rex::Socket.getaddress(param.peerhost)
         port = param.peerport
 
         if param.proxies
