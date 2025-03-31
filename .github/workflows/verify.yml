@@ -25,42 +25,5 @@ on:
       - '*'
 
 jobs:
-  test:
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 40
-
-    strategy:
-      fail-fast: false
-      matrix:
-        ruby:
-          - '2.7'
-          - '3.0'
-          - '3.1'
-          - '3.2'
-          - '3.3'
-        os:
-          - ubuntu-20.04
-          - windows-2019
-          - macos-13
-          - ubuntu-latest
-        exclude:
-          - { os: ubuntu-latest, ruby: '2.7' }
-          - { os: ubuntu-latest, ruby: '3.0' }
-
-    env:
-      RAILS_ENV: test
-
-    name: ${{ matrix.os }} - Ruby ${{ matrix.ruby }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: ${{ matrix.ruby }}
-          bundler-cache: true
-
-      - name: rspec
-        run: |
-          bundle exec rspec
+  build:
+    uses: rapid7/metasploit-framework/.github/workflows/shared_gem_verify_rails.yml@master
