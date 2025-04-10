@@ -84,6 +84,22 @@ begin
     # Build the SSL connection
     self.sslctx  = OpenSSL::SSL::SSLContext.new(version)
 
+    sslkeylogfile = ENV.fetch('SSLKEYLOGFILE', nil)
+
+    # writing to the sslkeylogfile is required, it adds support for network capture decryption which is useful to
+    # decrypt TLS traffic in wireshark
+    if sslkeylogfile
+      unless self.sslctx.respond_to?(:keylog_cb)
+        raise 'Unable to create sslkeylogfile - Ruby 3.2 or above required for this functionality'
+      end
+
+      self.sslctx.keylog_cb = proc do |_sock, line|
+        File.open(sslkeylogfile, 'ab') do |file|
+          file.write("#{line}\n")
+        end
+      end
+    end
+
     # Configure client certificate
     if params and params.ssl_client_cert
       self.sslctx.cert = OpenSSL::X509::Certificate.new(params.ssl_client_cert)
