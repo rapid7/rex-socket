@@ -8,6 +8,7 @@ module Rex
         HTTP = 'http'
         SOCKS4 = 'socks4'
         SOCKS5 = 'socks5'
+        SOCKS5H = 'socks5h'
       end
 
       # @param [String,nil] value A proxy chain of format {type:host:port[,type:host:port][...]}

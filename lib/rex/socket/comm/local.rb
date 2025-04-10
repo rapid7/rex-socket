@@ -179,7 +179,7 @@ class Rex::Socket::Comm::Local
     if param.localport || param.localhost
       begin
 
-        # SO_REUSEADDR has undesired semantics on Windows, intead allowing
+        # SO_REUSEADDR has undesired semantics on Windows, instead allowing
         # sockets to be stolen without warning from other unprotected
         # processes.
         unless Rex::Compat.is_windows
@@ -467,49 +467,25 @@ class Rex::Socket::Comm::Local
         raise Rex::ConnectionProxyError.new(host, port, type, "Proxy responded with error code #{ret[0,1].unpack("C")[0]}"), caller
       end
     when Rex::Socket::Proxies::ProxyType::SOCKS5
-      auth_methods = [5,1,0].pack('CCC')
-      size = sock.put(auth_methods)
-      if size != auth_methods.length
-        raise Rex::ConnectionProxyError.new(host, port, type, "Failed to send the entire request to the proxy"), caller
-      end
-      ret = sock.get_once(2,30)
-      if ret[1,1] == "\xff"
-        raise Rex::ConnectionProxyError.new(host, port, type, "The proxy requires authentication"), caller
+      # follow the unofficial convention where SOCKS5 handles the resolution locally (which leaks DNS)
+      if !Rex::Socket.is_ip_addr?(host)
+        if !Rex::Socket.is_name?(host)
+          raise Rex::ConnectionProxyError.new(host, port, type, "The SOCKS5 target host must be an IP address or a hostname"), caller
+        end
+
+        begin
+          address = Rex::Socket.getaddress(host, Rex::Socket.support_ipv6?)
+        rescue ::SocketError
+          raise Rex::ConnectionProxyError.new(host, port, type, "The SOCKS5 target '#{host}' could not be resolved to an IP address"), caller
+        end
+
+        host = address
       end
 
-      if Rex::Socket.is_ipv4?(host)
-        accepts_ipv6 = false
-        addr = Rex::Socket.resolv_nbo(host, accepts_ipv6)
-        setup = [5,1,0,1].pack('C4') + addr + [port.to_i].pack('n')
-      elsif Rex::Socket.support_ipv6? && Rex::Socket.is_ipv6?(host)
-        # IPv6 stuff all untested
-        accepts_ipv6 = true
-        addr = Rex::Socket.resolv_nbo(host, accepts_ipv6)
-        setup = [5,1,0,4].pack('C4') + addr + [port.to_i].pack('n')
-      else
-        # Then it must be a domain name.
-        # Unfortunately, it looks like the host has always been
-        # resolved by the time it gets here, so this code never runs.
-        setup = [5,1,0,3].pack('C4') + [host.length].pack('C') + host + [port.to_i].pack('n')
-      end
-
-      size = sock.put(setup)
-      if size != setup.length
-        raise Rex::ConnectionProxyError.new(host, port, type, "Failed to send the entire request to the proxy"), caller
-      end
-
-      begin
-        response = sock.get_once(10, 30)
-      rescue IOError
-        raise Rex::ConnectionProxyError.new(host, port, type, "Failed to receive a response from the proxy"), caller
-      end
-
-      if response.nil? || response.length < 10
-        raise Rex::ConnectionProxyError.new(host, port, type, "Failed to receive a complete response from the proxy"), caller
-      end
-      if response[1,1] != "\x00"
-        raise Rex::ConnectionProxyError.new(host, port, type, "Proxy responded with error code #{response[1,1].unpack("C")[0]}"), caller
-      end
+      self.proxy_socks5h(sock, type, host, port)
+    when Rex::Socket::Proxies::ProxyType::SOCKS5H
+      # follow the unofficial convention where SOCKS5H has the proxy server resolve the hostname to and IP address
+      self.proxy_socks5h(sock, type, host, port)
     else
       raise RuntimeError, "The proxy type specified is not valid", caller
     end
@@ -530,5 +506,52 @@ class Rex::Socket::Comm::Local
 
   def self.each_event_handler(handler) # :nodoc:
     self.instance.each_event_handler(handler)
+  end
+
+  private
+
+  def self.proxy_socks5h(sock, type, host, port)
+    auth_methods = [5,1,0].pack('CCC')
+    size = sock.put(auth_methods)
+    if size != auth_methods.length
+      raise Rex::ConnectionProxyError.new(host, port, type, "Failed to send the entire request to the proxy"), caller(1)
+    end
+    ret = sock.get_once(2,30)
+    if ret[1,1] == "\xff"
+      raise Rex::ConnectionProxyError.new(host, port, type, "The proxy requires authentication"), caller(1)
+    end
+
+    if Rex::Socket.is_ipv4?(host)
+      accepts_ipv6 = false
+      addr = Rex::Socket.resolv_nbo(host, accepts_ipv6)
+      setup = [5,1,0,1].pack('C4') + addr + [port.to_i].pack('n')
+    elsif Rex::Socket.is_ipv6?(host)
+      raise Rex::RuntimeError.new('Rex::Socket does not support IPv6') unless Rex::Socket.support_ipv6?
+
+      accepts_ipv6 = true
+      addr = Rex::Socket.resolv_nbo(host, accepts_ipv6)
+      setup = [5,1,0,4].pack('C4') + addr + [port.to_i].pack('n')
+    else
+      # Then it must be a domain name.
+      setup = [5,1,0,3].pack('C4') + [host.length].pack('C') + host + [port.to_i].pack('n')
+    end
+
+    size = sock.put(setup)
+    if size != setup.length
+      raise Rex::ConnectionProxyError.new(host, port, type, "Failed to send the entire request to the proxy"), caller(1)
+    end
+
+    begin
+      response = sock.get_once(10, 30)
+    rescue IOError
+      raise Rex::ConnectionProxyError.new(host, port, type, "Failed to receive a response from the proxy"), caller(1)
+    end
+
+    if response.nil? || response.length < 10
+      raise Rex::ConnectionProxyError.new(host, port, type, "Failed to receive a complete response from the proxy"), caller(1)
+    end
+    if response[1,1] != "\x00"
+      raise Rex::ConnectionProxyError.new(host, port, type, "Proxy responded with error code #{response[1,1].unpack("C")[0]}"), caller(1)
+    end
   end
 end

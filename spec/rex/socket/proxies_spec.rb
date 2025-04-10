@@ -9,6 +9,7 @@ RSpec.describe Rex::Socket::Proxies do
         socks4
         http
         socks5
+        socks5h
       ]
       expect(subject.supported_types).to match_array expected
     end
