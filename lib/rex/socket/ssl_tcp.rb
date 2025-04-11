@@ -84,8 +84,6 @@ begin
     # Build the SSL connection
     self.sslctx  = OpenSSL::SSL::SSLContext.new(version)
 
-    sslkeylogfile = ENV.fetch('SSLKEYLOGFILE', nil)
-
     # writing to the sslkeylogfile is required, it adds support for network capture decryption which is useful to
     # decrypt TLS traffic in wireshark
     if sslkeylogfile
