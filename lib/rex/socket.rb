@@ -805,6 +805,7 @@ module Socket
     if (params)
       self.peerhost  = params.peerhost
       self.peerhostname = params.peerhostname
+      self.sslkeylogfile = params.sslkeylogfile
       self.peerport  = params.peerport
       self.localhost = params.localhost
       self.localport = params.localport
@@ -888,6 +889,10 @@ module Socket
   #
   attr_reader :peerhostname
   #
+  # The SSL key log file path.
+  #
+  attr_reader :sslkeylogfile
+  #
   # The peer port of the connected socket.
   #
   attr_reader :peerport
@@ -912,7 +917,7 @@ module Socket
 
 protected
 
-  attr_writer :peerhost, :peerhostname, :peerport, :localhost, :localport # :nodoc:
+  attr_writer :peerhost, :peerhostname, :sslkeylogfile, :peerport, :localhost, :localport # :nodoc:
   attr_writer :context # :nodoc:
   attr_writer :ipv # :nodoc:
 
