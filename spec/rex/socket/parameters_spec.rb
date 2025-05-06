@@ -106,11 +106,11 @@ RSpec.describe Rex::Socket::Parameters do
 
     it 'should handle new proxy definitions' do
       expect(params.proxies).to eq nil
-      new_params = params.merge({ 'Proxies' => '1.2.3.4:1234, 5.6.7.8:5678' })
+      new_params = params.merge({ 'Proxies' => 'http:1.2.3.4:1234, http:5.6.7.8:5678' })
       expect(params.proxies).to eq nil
       expect(new_params.proxies).to eq [
-        ['1.2.3.4', '1234'],
-        ['5.6.7.8', '5678']
+        URI('http://1.2.3.4:1234'),
+        URI('http://5.6.7.8:5678')
       ]
     end
   end
