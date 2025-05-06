@@ -262,14 +262,15 @@ class Rex::Socket::Comm::Local
         end
 
         ip6_scope_idx = 0
-        ip   = Rex::Socket.getaddress(param.peerhost)
-        port = param.peerport
 
         if param.proxies
           chain = param.proxies.dup
           chain.push(['host',param.peerhost,param.peerport])
-          ip = chain[0][1]
+          ip   = chain[0][1]
           port = chain[0][2].to_i
+        else
+          ip   = Rex::Socket.getaddress(param.peerhost)
+          port = param.peerport
         end
 
         begin
@@ -326,12 +327,13 @@ class Rex::Socket::Comm::Local
         end
       end
 
+      # fixme: handle the chain object here
       if chain.size > 1
         chain.each_with_index {
           |proxy, i|
           next_hop = chain[i + 1]
           if next_hop
-            proxy(sock, proxy[0], next_hop[1], next_hop[2])
+            proxy(sock, proxy[0], next_hop[1], next_hop[2].to_i)
           end
         }
       end
@@ -342,8 +344,6 @@ class Rex::Socket::Comm::Local
         sock.extend(klass)
         sock.initsock(param)
       end
-
-
     end
 
     # Notify handlers that a socket has been created.
