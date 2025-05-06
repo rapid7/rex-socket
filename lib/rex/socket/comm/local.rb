@@ -263,11 +263,9 @@ class Rex::Socket::Comm::Local
 
         ip6_scope_idx = 0
 
-        if param.proxies
-          chain = param.proxies.dup
-          chain.push(['host',param.peerhost,param.peerport])
-          ip   = chain[0][1]
-          port = chain[0][2].to_i
+        if param.proxies && !param.proxies.empty?
+          ip   = param.proxies.first.host
+          port = param.proxies.first.port
         else
           ip   = Rex::Socket.getaddress(param.peerhost)
           port = param.peerport
@@ -327,19 +325,16 @@ class Rex::Socket::Comm::Local
         end
       end
 
-      # fixme: handle the chain object here
-      if chain.size > 1
-        chain.each_with_index {
-          |proxy, i|
-          next_hop = chain[i + 1]
-          if next_hop
-            proxy(sock, proxy[0], next_hop[1], next_hop[2].to_i)
-          end
-        }
+      if param.proxies && !param.proxies.empty?
+        param.proxies.each_cons(2) do |current_proxy, next_proxy|
+          proxy(sock, current_proxy.scheme, next_proxy.host, next_proxy.port)
+        end
+        current_proxy = param.proxies.last
+        proxy(sock, current_proxy.scheme, param.peerhost, param.peerport)
       end
 
       # Now extend the socket with SSL and perform the handshake
-      if(param.bare? == false and param.ssl)
+      if !param.bare? && param.ssl
         klass = Rex::Socket::SslTcp
         sock.extend(klass)
         sock.initsock(param)
