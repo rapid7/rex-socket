@@ -432,25 +432,21 @@ class Rex::Socket::Comm::Local
         raise Rex::ConnectionProxyError.new(host, port, type, "The proxy returned a non-OK response"), caller
       end
     when Rex::Socket::Proxies::ProxyType::SOCKS4
-      supports_ipv6 = false
-      setup = [4,1,port.to_i].pack('CCn') + Rex::Socket.resolv_nbo(host, supports_ipv6) + Rex::Text.rand_text_alpha(rand(8)+1) + "\x00"
-      size = sock.put(setup)
-      if size != setup.length
-        raise Rex::ConnectionProxyError.new(host, port, type, "Failed to send the entire request to the proxy"), caller
+      if !Rex::Socket.is_ipv4?(host)
+        if !Rex::Socket.is_name?(host)
+          raise Rex::ConnectionProxyError.new(host, port, type, "The SOCKS4 target host must be an IPv4 address or a hostname"), caller
+        end
+
+        begin
+          address = Rex::Socket.getaddress(host, false)
+        rescue ::SocketError
+          raise Rex::ConnectionProxyError.new(host, port, type, "The SOCKS4 target '#{host}' could not be resolved to an IP address"), caller
+        end
+
+        host = address
       end
 
-      begin
-        ret = sock.get_once(8, 30)
-      rescue IOError
-        raise Rex::ConnectionProxyError.new(host, port, type, "Failed to receive a response from the proxy"), caller
-      end
-
-      if ret.nil? || ret.length < 8
-        raise Rex::ConnectionProxyError.new(host, port, type, "Failed to receive a complete response from the proxy"), caller
-      end
-      if ret[1,1] != "\x5a"
-        raise Rex::ConnectionProxyError.new(host, port, type, "Proxy responded with error code #{ret[0,1].unpack("C")[0]}"), caller
-      end
+      self.proxy_socks4a(sock, type, host, port)
     when Rex::Socket::Proxies::ProxyType::SOCKS5
       # follow the unofficial convention where SOCKS5 handles the resolution locally (which leaks DNS)
       if !Rex::Socket.is_ip_addr?(host)
@@ -494,6 +490,27 @@ class Rex::Socket::Comm::Local
   end
 
   private
+
+  def self.proxy_socks4a(sock, type, host, port)
+    setup = [4,1,port.to_i].pack('CCn') + Rex::Socket.resolv_nbo(host, false) + Rex::Text.rand_text_alpha(rand(8)+1) + "\x00"
+    size = sock.put(setup)
+    if size != setup.length
+      raise Rex::ConnectionProxyError.new(host, port, type, "Failed to send the entire request to the proxy"), caller
+    end
+
+    begin
+      ret = sock.get_once(8, 30)
+    rescue IOError
+      raise Rex::ConnectionProxyError.new(host, port, type, "Failed to receive a response from the proxy"), caller
+    end
+
+    if ret.nil? || ret.length < 8
+      raise Rex::ConnectionProxyError.new(host, port, type, "Failed to receive a complete response from the proxy"), caller
+    end
+    if ret[1,1] != "\x5a"
+      raise Rex::ConnectionProxyError.new(host, port, type, "Proxy responded with error code #{ret[0,1].unpack("C")[0]}"), caller
+    end
+  end
 
   def self.proxy_socks5h(sock, type, host, port)
     auth_methods = [5,1,0].pack('CCC')
