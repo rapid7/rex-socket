@@ -424,10 +424,11 @@ class Rex::Socket::Comm::Local
         raise Rex::ConnectionProxyError.new(host, port, type, "Failed to receive a response from the proxy"), caller
       end
 
-      resp = Rex::Proto::Http::Response.new
-      resp.update_cmd_parts(ret.split(/\r?\n/)[0])
+      if (match = ret.match(/HTTP\/.+?\s+(\d+)\s?.+?\r?\n?$/))
+        status_code  = match[1].to_i
+      end
 
-      if resp.code != 200
+      if status_code != 200
         raise Rex::ConnectionProxyError.new(host, port, type, "The proxy returned a non-OK response"), caller
       end
     when Rex::Socket::Proxies::ProxyType::SOCKS4
