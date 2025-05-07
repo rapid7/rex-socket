@@ -122,40 +122,31 @@ class Rex::Socket::Comm::Local
   # Creates a socket using the supplied Parameter instance.
   #
   def self.create_by_type(param, type, proto = 0)
-
     # Detect IPv6 addresses and enable IPv6 accordingly
     if Rex::Socket.support_ipv6?
-
-      local = Rex::Socket.resolv_nbo(param.localhost) if param.localhost
-      peer  = Rex::Socket.resolv_nbo(param.peerhost) if param.peerhost
-
       # Enable IPv6 dual-bind mode for unbound UDP sockets on Linux
-      if type == ::Socket::SOCK_DGRAM && Rex::Compat.is_linux && !local && !peer
+      if type == ::Socket::SOCK_DGRAM && Rex::Compat.is_linux && !param.localhost && !param.peerhost
         param.v6 = true
 
       # Check if either of the addresses is 16 octets long
-      elsif (local && local.length == 16) || (peer && peer.length == 16)
+      elsif (param.localhost && Rex::Socket.is_ipv6?(param.localhost)) || (param.peerhost && Rex::Socket.is_ipv6?(param.peerhost))
         param.v6 = true
       end
 
       if param.v6
-        if local && local.length == 4
-          if local == "\x00\x00\x00\x00"
+        if param.localhost && Rex::Socket.is_ipv4?(param.localhost)
+          if Rex::Socket.addr_atoi(param.localhost) == 0
             param.localhost = '::'
-          elsif local == "\x7f\x00\x00\x01"
-            param.localhost = '::1'
           else
-            param.localhost = '::ffff:' + Rex::Socket.getaddress(param.localhost, true)
+            param.localhost = '::ffff:' + param.localhost
           end
         end
 
-        if peer && peer.length == 4
-          if peer == "\x00\x00\x00\x00"
+        if param.peerhost && Rex::Socket.is_ipv4?(param.peerhost)
+          if Rex::Socket.addr_atoi(param.peerhost) == 0
             param.peerhost = '::'
-          elsif peer == "\x7f\x00\x00\x01"
-            param.peerhost = '::1'
           else
-            param.peerhost = '::ffff:' + Rex::Socket.getaddress(param.peerhost, true)
+            param.peerhost = '::ffff:' + param.peerhost
           end
         end
       end
@@ -210,7 +201,7 @@ class Rex::Socket::Comm::Local
             klass = Rex::Socket::SslTcpServer
           end
         elsif param.proto == 'sctp'
-            klass = Rex::Socket::SctpServer
+          klass = Rex::Socket::SctpServer
         else
           raise Rex::BindFailed.new(param.localhost, param.localport), caller
         end
@@ -220,8 +211,6 @@ class Rex::Socket::Comm::Local
       end
     # Otherwise, if we're creating a client...
     else
-      chain = []
-
       # If we were supplied with host information
       if param.peerhost
 
@@ -263,7 +252,7 @@ class Rex::Socket::Comm::Local
 
         ip6_scope_idx = 0
 
-        if param.proxies && !param.proxies.empty?
+        if param.proxies?
           ip   = param.proxies.first.host
           port = param.proxies.first.port
         else
@@ -325,7 +314,7 @@ class Rex::Socket::Comm::Local
         end
       end
 
-      if param.proxies && !param.proxies.empty?
+      if param.proxies?
         param.proxies.each_cons(2) do |current_proxy, next_proxy|
           proxy(sock, current_proxy.scheme, next_proxy.host, next_proxy.port)
         end
