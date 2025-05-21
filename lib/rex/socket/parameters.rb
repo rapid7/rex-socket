@@ -323,6 +323,7 @@ class Rex::Socket::Parameters
   # The local host.  Equivalent to the LocalHost parameter hash key.
   # @return [String]
   attr_writer :localhost
+
   def localhost
     return @localhost if @localhost
 
@@ -365,7 +366,9 @@ class Rex::Socket::Parameters
     best_comm = nil
     # If no comm was explicitly specified, try to use the comm that is best fit
     # to handle the provided host based on the current routing table.
-    if server and localhost
+    if proxies?
+      best_comm = Rex::Socket::Comm::Local
+    elsif server && localhost
       best_comm = Rex::Socket::SwitchBoard.best_comm(localhost)
     elsif peerhost
       best_comm =  Rex::Socket::SwitchBoard.best_comm(peerhost)
@@ -482,6 +485,10 @@ class Rex::Socket::Parameters
   # List of proxies to use
   # @return [Array]
   attr_accessor :proxies
+
+  def proxies?
+    proxies && !proxies.empty?
+  end
 
   alias peeraddr  peerhost
   alias localaddr localhost
