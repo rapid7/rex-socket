@@ -370,6 +370,13 @@ RSpec.describe Rex::Socket do
       described_class.is_name?(try)
      end
 
+     context 'with an ip address' do
+       let(:try) { '192.168.1.1' }
+       it 'should return false' do
+         expect(name).to eq false
+       end
+     end
+
      context 'with a hostname' do
        let(:try) { "localhost" }
        it "should return true" do

@@ -133,7 +133,7 @@ module Socket
   # Determine whether this is a valid DNS name without trying to resolve it
   #
   def self.is_name?(name)
-    return false if name.length > 253
+    return false if name.length > 253 || name =~ MATCH_IPV4 || name =~ MATCH_IPV6
     name.delete_suffix('.') =~ MATCH_DNS_NAME ? (name =~ /\s/).nil? : false
   end
 
