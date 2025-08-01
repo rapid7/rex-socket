@@ -277,6 +277,13 @@ RSpec.describe Rex::Socket do
       end
     end
 
+    context 'with an IP CIDR' do
+      let(:try) { '192.168.1.1/30' }
+      it 'should return true' do
+        expect(addr).to eq true
+      end
+    end
+
     context 'with multiple IPv4 addresses' do
       context 'separated by newlines' do
         let(:try) { "127.0.0.1\n127.0.0.1" }
@@ -372,6 +379,20 @@ RSpec.describe Rex::Socket do
 
      context 'with an ip address' do
        let(:try) { '192.168.1.1' }
+       it 'should return false' do
+         expect(name).to eq false
+       end
+     end
+
+     context 'with an ip address range' do
+       let(:try) { '192.168.1.1-4' }
+       it 'should return false' do
+         expect(name).to eq false
+       end
+     end
+
+     context 'with an ip CIDR' do
+       let(:try) { '192.168.1.1/24' }
        it 'should return false' do
          expect(name).to eq false
        end
@@ -526,6 +547,50 @@ RSpec.describe Rex::Socket do
       it 'should call .rex_resolve_hostname' do
         expect(described_class).to receive(:rex_resolve_hostname).with(hostname, {resolver: nil}).and_raise(::SocketError.new('getaddrinfo: Name or service not known'))
         expect { subject }.to raise_error(::SocketError)
+      end
+    end
+  end
+
+  describe '.is_ip_range?' do
+    [
+      { input: '1.1.1.1 - 1.1.1.255', expected: true },
+      { input: '1.1.1.1- 1.1.1.255', expected: true },
+      { input: '1.1.1.1 -1.1.1.255', expected: true },
+      { input: '1.1.1.1-1.1.1.255', expected: true },
+      { input: '  1.1.1.1  -  1.1.1.255  ', expected: true },
+      { input: '1.1.1.1 - 255', expected: true },
+      { input: '::1 - ::ffff', expected: true },
+      { input: '127.0.0.1-.5', expected: true },
+      { input: '127.0.0.1-5', expected: true },
+      { input: '127.0.0.1-1.5', expected: true },
+      { input: '127.0.0.1-.1.5', expected: true },
+      { input: '::1 - ::1', expected: true },
+      { input: '::ffff - ::ffff', expected: true },
+      { input: '1.1.1.1 - ::1', expected: false },
+      { input: '::1 - 1.1.1.1', expected: false },
+      { input: 'example-domain.com', expected: false },
+      { input: 'example-domain-name.com', expected: false },
+      { input: '127.0.0.1', expected: false },
+      { input: '::1', expected: false },
+      { input: '::ffff::ffff', expected: false },
+      { input: '::1-::ffffffff', expected: false },
+      { input: '::1-ffff', expected: false },
+      { input: '1-ffff', expected: false },
+      { input: '1-::ffff', expected: false },
+      { input: 'example-domain.com-example-subdomain.com', expected: false },
+      { input: 'example-domain.com-docs.rapid7.com', expected: false },
+      { input: 'example-domain.com-127.0.0.1', expected: false },
+      { input: '127.0.0.1-rapid7.com', expected: false },
+      { input: '1-rapid7.com', expected: false },
+      { input: '::1-rapid7.com::ffff', expected: false },
+      { input: '00:1A:2B:3C:4D:5E-00:A1:B2:C3:D4:E5', expected: false },
+      { input: '00:1A:2B:3C:4D:5E-00:A1:B2:C3:D4:E5', expected: false },
+    ].each do |test_case|
+      it "should return #{test_case[:expected]} when given #{test_case[:input]}" do
+        input = test_case[:input]
+        expected = test_case[:expected]
+
+        expect(described_class.is_ip_range?(input)).to eq(expected)
       end
     end
   end
