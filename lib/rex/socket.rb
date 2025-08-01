@@ -133,7 +133,12 @@ module Socket
   # Determine whether this is a valid DNS name without trying to resolve it
   #
   def self.is_name?(name)
-    return false if name.length > 253 || name =~ MATCH_IPV4 || name =~ MATCH_IPV6
+    return false if name.length > 253
+
+    # If it ends in a CIDR range, then let's count it as an IP
+    matches_ip = (name =~ MATCH_IPV4 || name =~ MATCH_IPV6 || name =~ /\/\d+$/)
+    return false if matches_ip
+
     name.delete_suffix('.') =~ MATCH_DNS_NAME ? (name =~ /\s/).nil? : false
   end
 
@@ -171,6 +176,29 @@ module Socket
   #
   def self.dotted_ip?(addr)
     (support_ipv6? && self.is_ipv6?(addr)) || self.is_ipv4?(addr)
+  end
+
+  def self.is_ip_range?(addr)
+    elements = addr.split('-')
+    return false if elements.length != 2
+
+    elements.map! { |e| e.strip }
+
+    # We were provided with a simple case of '1.1.1.1-1.2.3.4', or '::1-::ffff'
+    return true if elements.all? { |element| is_ipv6?(element) } || elements.all? { |element| is_ipv4?(element) }
+
+    return false if elements.any? { |element| is_mac_addr?(element) }
+
+    # If we have a mix of IPv4 and IPv6 addresses, that's not a valid range
+    return false if elements.any? { |element| is_ipv4?(element) } && elements.any? { |element| is_ipv6?(element) }
+
+    ipv4_ending_regex = /((.)?[0-9]{1,3})+$/.freeze
+    return true if is_ipv4?(elements.first) && elements.last.match?(ipv4_ending_regex)
+
+    ipv6_ending_regex = /(^::[a-f0-9]{1,4})+$/.freeze
+    return true if is_ipv6?(elements.first) && elements.last.downcase.match?(ipv6_ending_regex)
+
+    false
   end
 
   # Checks to see if an address is an IPv6 address and if so, converts it into its
