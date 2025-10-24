@@ -324,8 +324,7 @@ class Rex::Socket::Comm::Local
 
       # Now extend the socket with SSL and perform the handshake
       if !param.bare? && param.ssl
-        klass = Rex::Socket::SslTcp
-        sock.extend(klass)
+        sock.extend(Rex::Socket::SslTcp)
         sock.initsock(param)
       end
     end

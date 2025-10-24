@@ -58,4 +58,12 @@ module Rex::Socket::Tcp
     return 'tcp'
   end
 
+  def starttls(param)
+    param = Rex::Socket::Parameters.from_hash(param) if param.is_a? Hash
+
+    param.ssl = true
+    extend(Rex::Socket::SslTcp)
+    initsock_with_ssl_version(param, (param.ssl_version || Rex::Socket::Ssl::DEFAULT_SSL_VERSION))
+    nil
+  end
 end
