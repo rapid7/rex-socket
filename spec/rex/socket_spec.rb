@@ -28,8 +28,6 @@ RSpec.describe Rex::Socket do
 
     it 'creates two socket pairs' do
       lsock, rsock = described_class.tcp_socket_pair
-      lsock.extend(Rex::IO::Stream)
-      rsock.extend(Rex::IO::Stream)
 
       expect(lsock.closed?).to be(false)
       expect(rsock.closed?).to be(false)
@@ -39,6 +37,33 @@ RSpec.describe Rex::Socket do
 
       expect(lsock.closed?).to be(true)
       expect(rsock.closed?).to be(true)
+    end
+
+    it 'extends returned with the Rex::Socket API' do
+      lsock, rsock = described_class.tcp_socket_pair
+      expect(lsock).to be_a(Rex::Socket::Tcp)
+      expect(rsock).to be_a(Rex::Socket::Tcp)
+    end
+  end
+
+  describe '.udp_socket_pair' do
+    it 'creates two socket pairs' do
+      lsock, rsock = described_class.udp_socket_pair
+
+      expect(lsock.closed?).to be(false)
+      expect(rsock.closed?).to be(false)
+
+      lsock.close
+      rsock.close
+
+      expect(lsock.closed?).to be(true)
+      expect(rsock.closed?).to be(true)
+    end
+
+    it 'extends returned with the Rex::Socket API' do
+      lsock, rsock = described_class.udp_socket_pair
+      expect(lsock).to be_a(Rex::Socket::Udp)
+      expect(rsock).to be_a(Rex::Socket::Udp)
     end
   end
 
