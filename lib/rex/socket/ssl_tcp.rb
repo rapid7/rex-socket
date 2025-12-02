@@ -66,21 +66,19 @@ begin
     super
 
     version = params&.ssl_version || Rex::Socket::Ssl::DEFAULT_SSL_VERSION
+
+    # Try initializing the socket with this SSL/TLS version
+    # This will throw an exception if it fails
+    initsock_with_ssl_version(params, version)
+  end
+
+  def initsock_with_ssl_version(params, version)
     # Raise an error if no selected versions are supported
     unless Rex::Socket::SslTcp.system_ssl_methods.include? version
       raise ArgumentError,
         "This version of Ruby does not support the requested SSL/TLS version #{version}"
     end
 
-    # Try initializing the socket with this SSL/TLS version
-    # This will throw an exception if it fails
-    initsock_with_ssl_version(params, version)
-
-    # Track the SSL version
-    self.ssl_negotiated_version = version
-  end
-
-  def initsock_with_ssl_version(params, version)
     # Build the SSL connection
     self.sslctx  = OpenSSL::SSL::SSLContext.new(version)
 
@@ -149,33 +147,22 @@ begin
 
     # Force a negotiation timeout
     begin
-    Timeout.timeout(params.timeout) do
-      if not allow_nonblock?
-        self.sslsock.connect
-      else
-        begin
-          self.sslsock.connect_nonblock
-        # Ruby 1.8.7 and 1.9.0/1.9.1 uses a standard Errno
-        rescue ::Errno::EAGAIN, ::Errno::EWOULDBLOCK
-            IO::select(nil, nil, nil, 0.10)
-            retry
-
-        # Ruby 1.9.2+ uses IO::WaitReadable/IO::WaitWritable
-        rescue ::Exception => e
-          if ::IO.const_defined?('WaitReadable') and e.kind_of?(::IO::WaitReadable)
+      Timeout.timeout(params.timeout) do
+        if not allow_nonblock?
+          self.sslsock.connect
+        else
+          begin
+            self.sslsock.connect_nonblock
+          rescue ::IO::WaitReadable
             IO::select( [ self.sslsock ], nil, nil, 0.10 )
             retry
-          end
 
-          if ::IO.const_defined?('WaitWritable') and e.kind_of?(::IO::WaitWritable)
+          rescue ::IO::WaitWritable
             IO::select( nil, [ self.sslsock ], nil, 0.10 )
             retry
           end
-
-          raise e
         end
       end
-    end
 
     rescue ::Timeout::Error
       raise Rex::ConnectionTimeout.new(params.peerhost, params.peerport)
@@ -215,34 +202,16 @@ begin
     rescue ::IOError, ::Errno::EPIPE
       return nil
 
-    # Ruby 1.8.7 and 1.9.0/1.9.1 uses a standard Errno
-    rescue ::Errno::EAGAIN, ::Errno::EWOULDBLOCK
-      # Sleep for a half a second, or until we can write again
-      Rex::ThreadSafe.select( nil, [ self.sslsock ], nil, retry_time )
-      # Decrement the block size to handle full sendQs better
-      block_size = 1024
-      # Try to write the data again
+    rescue ::IO::WaitReadable
+      IO::select( [ self.sslsock ], nil, nil, retry_time )
       retry
 
-    # Ruby 1.9.2+ uses IO::WaitReadable/IO::WaitWritable
-    rescue ::Exception => e
-      if ::IO.const_defined?('WaitReadable') and e.kind_of?(::IO::WaitReadable)
-        IO::select( [ self.sslsock ], nil, nil, retry_time )
-        retry
-      end
+    rescue ::IO::WaitWritable
+      IO::select( nil, [ self.sslsock ], nil, retry_time )
+      retry
 
-      if ::IO.const_defined?('WaitWritable') and e.kind_of?(::IO::WaitWritable)
-        IO::select( nil, [ self.sslsock ], nil, retry_time )
-        retry
-      end
-
-      # Another form of SSL error, this is always fatal
-      if e.kind_of?(::OpenSSL::SSL::SSLError)
-        return nil
-      end
-
-      # Bubble the event up to the caller otherwise
-      raise e
+    rescue ::OpenSSL::SSL::SSLError
+      return nil
     end
 
     total_sent
@@ -298,33 +267,16 @@ begin
     rescue ::IOError, ::Errno::EPIPE
       return nil
 
-    # Ruby 1.8.7 and 1.9.0/1.9.1 uses a standard Errno
-    rescue ::Errno::EAGAIN, ::Errno::EWOULDBLOCK
-      # Sleep for a tenth a second, or until we can read again
-      Rex::ThreadSafe.select( [ self.sslsock ], nil, nil, 0.10 )
-      # Decrement the block size to handle full sendQs better
-      block_size = 1024
-      # Try to write the data again
+    rescue ::IO::WaitReadable
+      IO::select( [ self.sslsock ], nil, nil, 0.10 )
       retry
 
-    # Ruby 1.9.2+ uses IO::WaitReadable/IO::WaitWritable
-    rescue ::Exception => e
-      if ::IO.const_defined?('WaitReadable') and e.kind_of?(::IO::WaitReadable)
-        IO::select( [ self.sslsock ], nil, nil, 0.5 )
-        retry
-      end
+    rescue ::IO::WaitWritable
+      IO::select( nil, [ self.sslsock ], nil, 0.10 )
+      retry
 
-      if ::IO.const_defined?('WaitWritable') and e.kind_of?(::IO::WaitWritable)
-        IO::select( nil, [ self.sslsock ], nil, 0.5 )
-        retry
-      end
-
-      # Another form of SSL error, this is always fatal
-      if e.kind_of?(::OpenSSL::SSL::SSLError)
-        return nil
-      end
-
-      raise e
+    rescue ::OpenSSL::SSL::SSLError
+      return nil
     end
 
   end
@@ -409,7 +361,6 @@ begin
   end
 
   attr_reader :peer_verified # :nodoc:
-  attr_reader :ssl_negotiated_version # :nodoc:
   attr_accessor :sslsock, :sslctx, :sslhash # :nodoc:
 
   def type?
@@ -419,8 +370,6 @@ begin
 protected
 
   attr_writer :peer_verified # :nodoc:
-  attr_writer :ssl_negotiated_version # :nodoc:
-
 
 rescue LoadError
 end

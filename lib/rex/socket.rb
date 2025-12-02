@@ -760,6 +760,9 @@ module Socket
       raise "Thread #{i} - error #{e} - last child error: #{last_child_error}"
     end
 
+    lsock.extend(Rex::Socket::Tcp)
+    rsock.extend(Rex::Socket::Tcp)
+
     return [lsock, rsock]
   end
 
@@ -778,6 +781,9 @@ module Socket
     rsock.connect( *lsock.addr.values_at(3,1) )
 
     lsock.connect( *rsock.addr.values_at(3,1) )
+
+    lsock.extend(Rex::Socket::Udp)
+    rsock.extend(Rex::Socket::Udp)
 
     return [lsock, rsock]
   end
