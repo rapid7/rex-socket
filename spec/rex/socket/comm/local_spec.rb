@@ -107,4 +107,60 @@ RSpec.describe Rex::Socket::Comm::Local do
       end
     end
   end
+
+  describe 'Interface option' do
+    context 'when Interface is set and a proxy is also configured' do
+      it 'raises Rex::BindFailed before creating a socket' do
+        params = Rex::Socket::Parameters.new(
+          'Proto'     => 'udp',
+          'Interface' => 'lo',
+          'Proxies'   => 'socks5:127.0.0.1:1080'
+        )
+        expect { described_class.create(params) }.to raise_error(Rex::BindFailed)
+      end
+    end
+
+    context 'when Interface is set to a name that cannot exist' do
+      it 'raises Rex::BindFailed' do
+        skip 'Linux only' unless Rex::Compat.is_linux
+        skip 'requires root (SO_BINDTODEVICE)' unless Process.uid == 0
+        params = Rex::Socket::Parameters.new(
+          'Proto'     => 'udp',
+          'LocalHost' => '127.0.0.1',
+          'LocalPort' => 0,
+          'Interface' => 'xX_no_such_iface_Xx'
+        )
+        expect { described_class.create(params) }.to raise_error(Rex::BindFailed)
+      end
+    end
+
+    context 'when Interface is set to loopback on Linux' do
+      it 'creates the socket successfully' do
+        skip 'Linux only' unless Rex::Compat.is_linux
+        skip 'requires root (SO_BINDTODEVICE)' unless Process.uid == 0
+        params = Rex::Socket::Parameters.new(
+          'Proto'     => 'udp',
+          'LocalHost' => '127.0.0.1',
+          'LocalPort' => 0,
+          'Interface' => 'lo'
+        )
+        sock = described_class.create(params)
+        expect(sock).not_to be_nil
+        sock.close
+      end
+    end
+
+    context 'when running on a non-Linux platform' do
+      it 'raises Rex::BindFailed' do
+        skip 'non-Linux only' if Rex::Compat.is_linux
+        params = Rex::Socket::Parameters.new(
+          'Proto'     => 'udp',
+          'LocalHost' => '127.0.0.1',
+          'LocalPort' => 0,
+          'Interface' => 'lo'
+        )
+        expect { described_class.create(params) }.to raise_error(Rex::BindFailed)
+      end
+    end
+  end
 end

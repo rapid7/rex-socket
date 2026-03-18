@@ -158,6 +158,10 @@ class Rex::Socket::Comm::Local
     # Notify handlers of the before socket create event.
     self.instance.notify_before_socket_create(self, param)
 
+    if param.interface && !param.interface.empty? && param.proxies?
+      raise Rex::BindFailed.new(param.localhost, param.localport), caller
+    end
+
     # Create the socket
     sock = nil
     if param.v6
@@ -180,6 +184,23 @@ class Rex::Socket::Comm::Local
         sock.bind(Rex::Socket.to_sockaddr(param.localhost, param.localport))
 
       rescue ::Errno::EADDRNOTAVAIL,::Errno::EADDRINUSE
+        sock.close
+        raise Rex::BindFailed.new(param.localhost, param.localport), caller
+      end
+    end
+
+    if param.interface && !param.interface.empty?
+      if Rex::Compat.is_linux
+        begin
+          sock.setsockopt(::Socket::SOL_SOCKET, ::Socket::SO_BINDTODEVICE, param.interface)
+        rescue ::Errno::ENODEV, ::Errno::ENXIO
+          sock.close
+          raise Rex::BindFailed.new(param.localhost, param.localport), caller
+        rescue ::Errno::EPERM
+          sock.close
+          raise Rex::BindFailed.new(param.localhost, param.localport), caller
+        end
+      else
         sock.close
         raise Rex::BindFailed.new(param.localhost, param.localport), caller
       end
