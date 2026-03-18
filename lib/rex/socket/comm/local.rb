@@ -159,7 +159,8 @@ class Rex::Socket::Comm::Local
     self.instance.notify_before_socket_create(self, param)
 
     if param.interface && !param.interface.empty? && param.proxies?
-      raise Rex::BindFailed.new(param.localhost, param.localport), caller
+      raise Rex::BindFailed.new(param.localhost, param.localport,
+        reason: 'Interface option is incompatible with proxy use'), caller
     end
 
     # Create the socket
@@ -195,14 +196,26 @@ class Rex::Socket::Comm::Local
           sock.setsockopt(::Socket::SOL_SOCKET, ::Socket::SO_BINDTODEVICE, param.interface)
         rescue ::Errno::ENODEV, ::Errno::ENXIO
           sock.close
-          raise Rex::BindFailed.new(param.localhost, param.localport), caller
+          raise Rex::BindFailed.new(param.localhost, param.localport,
+            reason: "Interface #{param.interface} not found"), caller
         rescue ::Errno::EPERM
           sock.close
-          raise Rex::BindFailed.new(param.localhost, param.localport), caller
+          raise Rex::BindFailed.new(param.localhost, param.localport,
+            reason: "Binding to interface #{param.interface} requires elevated privileges"), caller
+        end
+      elsif Rex::Compat.is_osx && defined?(::Socket::IP_BOUND_IF)
+        begin
+          idx = ::Socket.if_nametoindex(param.interface)
+          sock.setsockopt(::Socket::IPPROTO_IP, ::Socket::IP_BOUND_IF, [idx].pack('I'))
+        rescue ::SocketError, ::Errno::ENXIO
+          sock.close
+          raise Rex::BindFailed.new(param.localhost, param.localport,
+            reason: "Interface #{param.interface} not found"), caller
         end
       else
         sock.close
-        raise Rex::BindFailed.new(param.localhost, param.localport), caller
+        raise Rex::BindFailed.new(param.localhost, param.localport,
+          reason: 'Interface binding is not supported on this platform'), caller
       end
     end
 
