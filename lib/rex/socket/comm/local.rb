@@ -214,8 +214,13 @@ class Rex::Socket::Comm::Local
         end
       else
         sock.close
-        raise Rex::BindFailed.new(param.localhost, param.localport,
-          reason: 'Interface binding is not supported on this platform'), caller
+        if Rex::Compat.is_windows
+          raise Rex::BindFailed.new(param.localhost, param.localport,
+            reason: 'Interface binding is not supported on Windows'), caller
+        else
+          raise Rex::BindFailed.new(param.localhost, param.localport,
+            reason: 'Interface binding is not supported on this platform'), caller
+        end
       end
     end
 
