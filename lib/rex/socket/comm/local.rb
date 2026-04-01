@@ -163,6 +163,33 @@ class Rex::Socket::Comm::Local
         reason: 'Interface option is incompatible with proxy use'), caller
     end
 
+    if param.interface && !param.interface.empty? && Rex::Compat.is_windows
+      iface_ip = nil
+      iface_found = false
+      begin
+        ::Socket.getifaddrs.each do |ifaddr|
+          next unless ifaddr.name == param.interface
+          iface_found = true
+          next unless ifaddr.addr&.ipv4?
+          iface_ip = ifaddr.addr.ip_address
+          break
+        end
+      rescue ::SystemCallError, ::SocketError => e
+        raise Rex::BindFailed.new(param.localhost, param.localport,
+          reason: "Failed to enumerate interfaces: #{e.message}"), caller
+      end
+      if iface_ip.nil?
+        reason = if iface_found
+          "Interface #{param.interface} has no IPv4 address"
+        else
+          "Interface #{param.interface} not found"
+        end
+        raise Rex::BindFailed.new(param.localhost, param.localport,
+          reason: reason), caller
+      end
+      param.localhost = iface_ip
+    end
+
     # Create the socket
     sock = nil
     if param.v6
@@ -202,25 +229,31 @@ class Rex::Socket::Comm::Local
           sock.close
           raise Rex::BindFailed.new(param.localhost, param.localport,
             reason: "Binding to interface #{param.interface} requires elevated privileges"), caller
+        rescue ::SystemCallError
+          sock.close
+          raise
         end
       elsif Rex::Compat.is_osx && defined?(::Socket::IP_BOUND_IF)
         begin
-          idx = ::Socket.if_nametoindex(param.interface)
+          idx = ::Socket.getifaddrs.find { |ifaddr| ifaddr.name == param.interface }&.ifindex
+          if idx.nil?
+            sock.close
+            raise Rex::BindFailed.new(param.localhost, param.localport,
+              reason: "Interface #{param.interface} not found"), caller
+          end
           sock.setsockopt(::Socket::IPPROTO_IP, ::Socket::IP_BOUND_IF, [idx].pack('I'))
         rescue ::SocketError, ::Errno::ENXIO
           sock.close
           raise Rex::BindFailed.new(param.localhost, param.localport,
             reason: "Interface #{param.interface} not found"), caller
+        rescue ::SystemCallError
+          sock.close
+          raise
         end
-      else
+      elsif !Rex::Compat.is_windows
         sock.close
-        if Rex::Compat.is_windows
-          raise Rex::BindFailed.new(param.localhost, param.localport,
-            reason: 'Interface binding is not supported on Windows'), caller
-        else
-          raise Rex::BindFailed.new(param.localhost, param.localport,
-            reason: 'Interface binding is not supported on this platform'), caller
-        end
+        raise Rex::BindFailed.new(param.localhost, param.localport,
+          reason: 'Interface binding is not supported on this platform'), caller
       end
     end
 
