@@ -206,8 +206,7 @@ class Rex::Socket::Parameters
       self.timeout = hash['Timeout'].to_i
     end
 
-    self.interface = hash['Interface'].to_s.strip if hash['Interface']
-
+    self.interface = hash['Interface'].to_s.strip if hash['Interface'] && !hash['Interface'].strip.empty?
 
     # Whether to force IPv6 addressing
     if hash['IPv6'].nil?

@@ -158,6 +158,10 @@ class Rex::Socket::Comm::Local
     # Notify handlers of the before socket create event.
     self.instance.notify_before_socket_create(self, param)
 
+    # Binding to a specific interface while routing through a proxy is not
+    # supported. The proxy comm handles its own socket creation and ignores
+    # the interface option entirely, so we fail fast here rather than
+    # silently binding to the wrong interface.
     if param.interface && !param.interface.empty? && param.proxies?
       raise Rex::BindFailed.new(param.localhost, param.localport,
         reason: 'Interface option is incompatible with proxy use'), caller
@@ -170,7 +174,11 @@ class Rex::Socket::Comm::Local
         ::Socket.getifaddrs.each do |ifaddr|
           next unless ifaddr.name == param.interface
           iface_found = true
-          next unless ifaddr.addr&.ipv4?
+          if param.v6
+            next unless ifaddr.addr&.ipv6?
+          else
+            next unless ifaddr.addr&.ipv4?
+          end
           iface_ip = ifaddr.addr.ip_address
           break
         end
@@ -180,13 +188,14 @@ class Rex::Socket::Comm::Local
       end
       if iface_ip.nil?
         reason = if iface_found
-          "Interface #{param.interface} has no IPv4 address"
+          "Interface #{param.interface} has no #{param.v6 ? 'IPv6' : 'IPv4'} address"
         else
           "Interface #{param.interface} not found"
         end
         raise Rex::BindFailed.new(param.localhost, param.localport,
           reason: reason), caller
       end
+      param = param.dup  # avoid mutating the caller's instance
       param.localhost = iface_ip
     end
 
