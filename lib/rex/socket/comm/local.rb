@@ -242,7 +242,7 @@ class Rex::Socket::Comm::Local
           sock.close
           raise
         end
-      elsif Rex::Compat.is_osx && defined?(::Socket::IP_BOUND_IF)
+      elsif Rex::Compat.is_macosx && defined?(::Socket::IP_BOUND_IF)
         begin
           idx = ::Socket.getifaddrs.find { |ifaddr| ifaddr.name == param.interface }&.ifindex
           if idx.nil?
