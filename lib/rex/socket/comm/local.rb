@@ -167,30 +167,30 @@ class Rex::Socket::Comm::Local
         reason: 'Interface option is incompatible with proxy use'), caller
     end
 
+    # On Windows, interface binding is handled by resolving the interface
+    # name to an IP address and overriding localhost before socket creation.
+    # No setsockopt-based interface binding is used.
     if param.interface && !param.interface.empty? && Rex::Compat.is_windows
       iface_ip = nil
-      iface_found = false
       begin
-        ::Socket.getifaddrs.each do |ifaddr|
-          next unless ifaddr.name == param.interface
-          iface_found = true
+        ifaddrs = ::Socket.getifaddrs.select { |ifaddr| ifaddr.name == param.interface }
+        iface = ifaddrs.find do |ifaddr|
           if param.v6
-            next unless ifaddr.addr&.ipv6?
+            ifaddr.addr&.ipv6?
           else
-            next unless ifaddr.addr&.ipv4?
+            ifaddr.addr&.ipv4?
           end
-          iface_ip = ifaddr.addr.ip_address
-          break
         end
+        iface_ip = iface&.addr&.ip_address
       rescue ::SystemCallError, ::SocketError => e
         raise Rex::BindFailed.new(param.localhost, param.localport,
           reason: "Failed to enumerate interfaces: #{e.message}"), caller
       end
       if iface_ip.nil?
-        reason = if iface_found
-          "Interface #{param.interface} has no #{param.v6 ? 'IPv6' : 'IPv4'} address"
-        else
+        reason = if ifaddrs.empty?
           "Interface #{param.interface} not found"
+        else
+          "Interface #{param.interface} has no #{param.v6 ? 'IPv6' : 'IPv4'} address"
         end
         raise Rex::BindFailed.new(param.localhost, param.localport,
           reason: reason), caller
@@ -242,15 +242,19 @@ class Rex::Socket::Comm::Local
           sock.close
           raise
         end
-      elsif Rex::Compat.is_macosx && defined?(::Socket::IP_BOUND_IF)
+      elsif Rex::Compat.is_macosx
         begin
-          idx = ::Socket.getifaddrs.find { |ifaddr| ifaddr.name == param.interface }&.ifindex
+          # IP_BOUND_IF may not be defined in Ruby builds on macOS,
+          # so we fallback to raw value 25 which is stable across versions.
+          ip_bound_if = defined?(::Socket::IP_BOUND_IF) ? ::Socket::IP_BOUND_IF : 25
+          iface = ::Socket.getifaddrs.find { |ifaddr| ifaddr.name == param.interface }
+          idx = iface&.ifindex
           if idx.nil?
             sock.close
             raise Rex::BindFailed.new(param.localhost, param.localport,
               reason: "Interface #{param.interface} not found"), caller
           end
-          sock.setsockopt(::Socket::IPPROTO_IP, ::Socket::IP_BOUND_IF, [idx].pack('I'))
+          sock.setsockopt(::Socket::IPPROTO_IP, ip_bound_if, [idx].pack('I'))
         rescue ::SocketError, ::Errno::ENXIO
           sock.close
           raise Rex::BindFailed.new(param.localhost, param.localport,
