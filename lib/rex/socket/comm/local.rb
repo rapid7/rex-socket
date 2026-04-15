@@ -207,25 +207,8 @@ class Rex::Socket::Comm::Local
       sock = ::Socket.new(::Socket::AF_INET, type, proto)
     end
 
-    # Bind to a given local address and/or port if they are supplied
-    if param.localport || param.localhost
-      begin
-
-        # SO_REUSEADDR has undesired semantics on Windows, instead allowing
-        # sockets to be stolen without warning from other unprotected
-        # processes.
-        unless Rex::Compat.is_windows
-          sock.setsockopt(::Socket::SOL_SOCKET, ::Socket::SO_REUSEADDR, true)
-        end
-
-        sock.bind(Rex::Socket.to_sockaddr(param.localhost, param.localport))
-
-      rescue ::Errno::EADDRNOTAVAIL,::Errno::EADDRINUSE
-        sock.close
-        raise Rex::BindFailed.new(param.localhost, param.localport), caller
-      end
-    end
-
+    # Apply interface binding BEFORE sock.bind() so the socket appears in netstat
+    # and accepts connections on the specified interface
     if param.interface && !param.interface.empty?
       if Rex::Compat.is_linux
         begin
@@ -267,6 +250,25 @@ class Rex::Socket::Comm::Local
         sock.close
         raise Rex::BindFailed.new(param.localhost, param.localport,
           reason: 'Interface binding is not supported on this platform'), caller
+      end
+    end
+
+    # Bind to a given local address and/or port if they are supplied
+    if param.localport || param.localhost
+      begin
+
+        # SO_REUSEADDR has undesired semantics on Windows, instead allowing
+        # sockets to be stolen without warning from other unprotected
+        # processes.
+        unless Rex::Compat.is_windows
+          sock.setsockopt(::Socket::SOL_SOCKET, ::Socket::SO_REUSEADDR, true)
+        end
+
+        sock.bind(Rex::Socket.to_sockaddr(param.localhost, param.localport))
+
+      rescue ::Errno::EADDRNOTAVAIL,::Errno::EADDRINUSE
+        sock.close
+        raise Rex::BindFailed.new(param.localhost, param.localport), caller
       end
     end
 
