@@ -158,12 +158,99 @@ class Rex::Socket::Comm::Local
     # Notify handlers of the before socket create event.
     self.instance.notify_before_socket_create(self, param)
 
+    # Binding to a specific interface while routing through a proxy is not
+    # supported. The proxy comm handles its own socket creation and ignores
+    # the interface option entirely, so we fail fast here rather than
+    # silently binding to the wrong interface.
+    if param.interface && !param.interface.empty? && param.proxies?
+      raise Rex::BindFailed.new(param.localhost, param.localport,
+        reason: 'Interface option is incompatible with proxy use'), caller
+    end
+
+    # On Windows, interface binding is handled by resolving the interface
+    # name to an IP address and overriding localhost before socket creation.
+    # No setsockopt-based interface binding is used.
+    if param.interface && !param.interface.empty? && Rex::Compat.is_windows
+      iface_ip = nil
+      begin
+        ifaddrs = ::Socket.getifaddrs.select { |ifaddr| ifaddr.name == param.interface }
+        iface = ifaddrs.find do |ifaddr|
+          if param.v6
+            ifaddr.addr&.ipv6?
+          else
+            ifaddr.addr&.ipv4?
+          end
+        end
+        iface_ip = iface&.addr&.ip_address
+      rescue ::SystemCallError, ::SocketError => e
+        raise Rex::BindFailed.new(param.localhost, param.localport,
+          reason: "Failed to enumerate interfaces: #{e.message}"), caller
+      end
+      if iface_ip.nil?
+        reason = if ifaddrs.empty?
+          "Interface #{param.interface} not found"
+        else
+          "Interface #{param.interface} has no #{param.v6 ? 'IPv6' : 'IPv4'} address"
+        end
+        raise Rex::BindFailed.new(param.localhost, param.localport,
+          reason: reason), caller
+      end
+      param = param.dup  # avoid mutating the caller's instance
+      param.localhost = iface_ip
+    end
+
     # Create the socket
     sock = nil
     if param.v6
       sock = ::Socket.new(::Socket::AF_INET6, type, proto)
     else
       sock = ::Socket.new(::Socket::AF_INET, type, proto)
+    end
+
+    # Apply interface binding BEFORE sock.bind() so the socket appears in netstat
+    # and accepts connections on the specified interface
+    if param.interface && !param.interface.empty?
+      if Rex::Compat.is_linux
+        begin
+          sock.setsockopt(::Socket::SOL_SOCKET, ::Socket::SO_BINDTODEVICE, param.interface)
+        rescue ::Errno::ENODEV, ::Errno::ENXIO
+          sock.close
+          raise Rex::BindFailed.new(param.localhost, param.localport,
+            reason: "Interface #{param.interface} not found"), caller
+        rescue ::Errno::EPERM
+          sock.close
+          raise Rex::BindFailed.new(param.localhost, param.localport,
+            reason: "Binding to interface #{param.interface} requires elevated privileges"), caller
+        rescue ::SystemCallError
+          sock.close
+          raise
+        end
+      elsif Rex::Compat.is_macosx
+        begin
+          # IP_BOUND_IF may not be defined in Ruby builds on macOS,
+          # so we fallback to raw value 25 which is stable across versions.
+          ip_bound_if = defined?(::Socket::IP_BOUND_IF) ? ::Socket::IP_BOUND_IF : 25
+          iface = ::Socket.getifaddrs.find { |ifaddr| ifaddr.name == param.interface }
+          idx = iface&.ifindex
+          if idx.nil?
+            sock.close
+            raise Rex::BindFailed.new(param.localhost, param.localport,
+              reason: "Interface #{param.interface} not found"), caller
+          end
+          sock.setsockopt(::Socket::IPPROTO_IP, ip_bound_if, [idx].pack('I'))
+        rescue ::SocketError, ::Errno::ENXIO
+          sock.close
+          raise Rex::BindFailed.new(param.localhost, param.localport,
+            reason: "Interface #{param.interface} not found"), caller
+        rescue ::SystemCallError
+          sock.close
+          raise
+        end
+      elsif !Rex::Compat.is_windows
+        sock.close
+        raise Rex::BindFailed.new(param.localhost, param.localport,
+          reason: 'Interface binding is not supported on this platform'), caller
+      end
     end
 
     # Bind to a given local address and/or port if they are supplied

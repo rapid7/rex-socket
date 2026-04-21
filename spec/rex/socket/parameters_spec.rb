@@ -125,4 +125,27 @@ RSpec.describe Rex::Socket::Parameters do
     end
   end
 
+  describe '#interface' do
+    it 'is nil by default' do
+      params = described_class.new({})
+      expect(params.interface).to be_nil
+    end
+
+    it 'is set from the Interface hash key' do
+      params = described_class.new('Interface' => 'eth0')
+      expect(params.interface).to eq('eth0')
+    end
+
+    it 'strips leading and trailing whitespace' do
+      params = described_class.new('Interface' => '  lo  ')
+      expect(params.interface).to eq('lo')
+    end
+
+    it 'is nil when the key is absent, not an empty string' do
+      params = described_class.new({})
+      expect(params.interface).to be_nil
+      expect(params.interface).not_to eq('')
+    end
+  end
+
 end

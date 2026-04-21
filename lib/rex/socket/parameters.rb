@@ -81,6 +81,9 @@ class Rex::Socket::Parameters
   #   retried.
   # @option hash [Fixnum] 'Timeout' The number of seconds before a connection
   #   should time out
+  # @option hash [String] 'Interface' The network interface name to bind the socket to
+  #   (e.g. 'eth0'). Only honoured by the local Comm; raises Rex::BindFailed if combined
+  #   with a proxy.
   def initialize(hash = {})
     if (hash['PeerHost'])
       self.peerhost = hash['PeerHost']
@@ -202,6 +205,8 @@ class Rex::Socket::Parameters
     if hash['Timeout']
       self.timeout = hash['Timeout'].to_i
     end
+
+    self.interface = hash['Interface'].to_s.strip if hash['Interface'] && !hash['Interface'].strip.empty?
 
     # Whether to force IPv6 addressing
     if hash['IPv6'].nil?
@@ -485,6 +490,10 @@ class Rex::Socket::Parameters
   # List of proxies to use
   # @return [Array]
   attr_accessor :proxies
+
+  # The network interface name to bind the socket to (e.g. 'eth0'). nil means no binding.
+  # @return [String, nil]
+  attr_accessor :interface
 
   def proxies?
     proxies && !proxies.empty?
