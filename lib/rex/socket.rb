@@ -4,7 +4,7 @@ require 'socket'
 require 'thread'
 require 'resolv'
 require 'rex/exceptions'
-require 'dnsruby'
+autoload :Dnsruby, 'dnsruby'
 
 module Rex
 
