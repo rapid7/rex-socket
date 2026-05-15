@@ -141,24 +141,19 @@ module Rex::Socket::Udp
   # address positions; no reverse-DNS lookup is performed).
   #
   # @param maxlen [Integer] maximum number of bytes to receive
-  # @param timeout [Numeric] seconds to wait before raising Errno::EAGAIN
-  #   (default: def_read_timeout = 10). NOTE: this parameter was previously
-  #   named +flags+ and defaulted to 0; callers that passed flags=0 explicitly
-  #   will now receive a 0-second (poll) receive instead of a 10-second wait.
+  # @param flags [Integer] flags passed to the underlying recvfrom(2) call (default: 0)
   #
-  def recvfrom(maxlen, timeout = def_read_timeout)
-    rv = ::IO.select([ fd ], nil, nil, timeout)
+  def recvfrom(maxlen, flags = 0)
+    rv = ::IO.select([ fd ], nil, nil, def_read_timeout)
 
     raise Errno::EAGAIN, "Resource temporarily unavailable" if rv.nil?
 
-    data, saddr = recvfrom_nonblock(maxlen)
+    data, saddr = recvfrom_nonblock(maxlen, flags)
     af, host, port = Rex::Socket.from_sockaddr(saddr)
     af_name = Socket.constants.grep(/^AF_/).find { |c| Socket.const_get(c) == af }.to_s
     [data, [af_name, port, host, host]]
   rescue ::Timeout::Error
     raise Errno::EAGAIN, "Resource temporarily unavailable"
-  rescue ::Interrupt
-    raise
   end
 
   #
