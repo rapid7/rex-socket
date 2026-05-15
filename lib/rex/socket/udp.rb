@@ -135,37 +135,37 @@ module Rex::Socket::Udp
   end
 
   #
-  # Receives a datagram and returns the data and host:port of the requestor
-  # as [ data, host, port ].
+  # Receives a datagram and returns the data and sender address information
+  # as [ data, [address_family, port, host, host] ], matching the format of
+  # stdlib UDPSocket#recvfrom (host appears in both the hostname and numeric
+  # address positions; no reverse-DNS lookup is performed).
   #
-  def recvfrom(length = 65535, timeout=def_read_timeout)
+  # @param maxlen [Integer] maximum number of bytes to receive
+  # @param timeout [Numeric] seconds to wait before raising Errno::EAGAIN
+  #   (default: def_read_timeout = 10). NOTE: this parameter was previously
+  #   named +flags+ and defaulted to 0; callers that passed flags=0 explicitly
+  #   will now receive a 0-second (poll) receive instead of a 10-second wait.
+  #
+  def recvfrom(maxlen, timeout = def_read_timeout)
+    rv = ::IO.select([ fd ], nil, nil, timeout)
 
-    begin
-      if ((rv = ::IO.select([ fd ], nil, nil, timeout)) and
-          (rv[0]) and (rv[0][0] == fd)
-         )
-          data, saddr    = recvfrom_nonblock(length)
-          af, host, port = Rex::Socket.from_sockaddr(saddr)
+    raise Errno::EAGAIN, "Resource temporarily unavailable" if rv.nil?
 
-          return [ data, host, port ]
-      else
-        return [ '', nil, nil ]
-      end
-    rescue ::Timeout::Error
-      return [ '', nil, nil ]
-    rescue ::Interrupt
-      raise $!
-    rescue ::Exception
-      return [ '', nil, nil ]
-    end
+    data, saddr = recvfrom_nonblock(maxlen)
+    af, host, port = Rex::Socket.from_sockaddr(saddr)
+    af_name = Socket.constants.grep(/^AF_/).find { |c| Socket.const_get(c) == af }.to_s
+    [data, [af_name, port, host, host]]
+  rescue ::Timeout::Error
+    raise Errno::EAGAIN, "Resource temporarily unavailable"
+  rescue ::Interrupt
+    raise
   end
 
   #
   # Calls recvfrom and only returns the data
   #
   def get(timeout=nil)
-    data, saddr, sport = recvfrom(65535, timeout)
-    return data
+    timed_read(65535, timeout)
   end
 
   #
