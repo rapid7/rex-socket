@@ -117,6 +117,25 @@ module Rex::Socket::Udp
   end
 
   #
+  # Sends a datagram using the stdlib 4-arg form send(mesg, flags, host, port),
+  # delegating to sendto so that channel/pivoted sockets (which only implement
+  # sendto) work identically to local sockets. Callers can use this form
+  # uniformly without checking the socket type.
+  #
+  # Also handles the 3-arg sockaddr form used internally by sendto, forwarding
+  # it to BasicSocket#send which accepts a packed sockaddr as the third argument.
+  #
+  def send(mesg, flags, host_or_sockaddr = nil, port = nil)
+    if port
+      sendto(mesg, host_or_sockaddr, port, flags)
+    elsif host_or_sockaddr
+      super(mesg, flags, host_or_sockaddr)
+    else
+      super(mesg, flags)
+    end
+  end
+
+  #
   # Receives a datagram and returns the data and host:port of the requestor
   # as [ data, host, port ].
   #
