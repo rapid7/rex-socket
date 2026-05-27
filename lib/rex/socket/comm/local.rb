@@ -256,7 +256,13 @@ class Rex::Socket::Comm::Local
           ip   = param.proxies.first.host
           port = param.proxies.first.port
         else
-          ip   = Rex::Socket.getaddress(param.peerhost)
+          if Rex::Socket.is_ip_addr?(param.peerhost)
+            ip = param.peerhost
+          elsif param.v6
+            ip = Rex::Socket.getaddresses(param.peerhost, true).select { |address| Rex::Socket.is_ipv6?(address) }.sample
+          else
+            ip = Rex::Socket.getaddresses(param.peerhost, false).select { |address| Rex::Socket.is_ipv4?(address) }.sample
+          end
           port = param.peerport
         end
 
