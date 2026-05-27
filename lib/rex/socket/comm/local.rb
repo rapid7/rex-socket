@@ -264,7 +264,15 @@ class Rex::Socket::Comm::Local
           sock.setsockopt(::Socket::SOL_SOCKET, ::Socket::SO_REUSEADDR, true)
         end
 
-        sock.bind(Rex::Socket.to_sockaddr(param.localhost, param.localport))
+        if Rex::Socket.is_ip_addr?(param.localhost)
+          ip = param.localhost
+        elsif param.v6
+          ip = Rex::Socket.getaddresses(param.localhost, true).select { |address| Rex::Socket.is_ipv6?(address) }.sample
+        else
+          ip = Rex::Socket.getaddresses(param.localhost, false).select { |address| Rex::Socket.is_ipv4?(address) }.sample
+        end
+
+        sock.bind(Rex::Socket.to_sockaddr(ip, param.localport))
 
       rescue ::Errno::EADDRNOTAVAIL,::Errno::EADDRINUSE
         sock.close
@@ -343,7 +351,13 @@ class Rex::Socket::Comm::Local
           ip   = param.proxies.first.host
           port = param.proxies.first.port
         else
-          ip   = Rex::Socket.getaddress(param.peerhost)
+          if Rex::Socket.is_ip_addr?(param.peerhost)
+            ip = param.peerhost
+          elsif param.v6
+            ip = Rex::Socket.getaddresses(param.peerhost, true).select { |address| Rex::Socket.is_ipv6?(address) }.sample
+          else
+            ip = Rex::Socket.getaddresses(param.peerhost, false).select { |address| Rex::Socket.is_ipv4?(address) }.sample
+          end
           port = param.peerport
         end
 
