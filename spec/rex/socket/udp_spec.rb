@@ -1,14 +1,40 @@
-# -*- coding: binary -*-
+# -*- coding:binary -*-
 require 'spec_helper'
 
 RSpec.describe Rex::Socket::Udp do
-  let(:receiver) { UDPSocket.new.tap { |s| s.bind('127.0.0.1', 0) } }
+  let(:loopback) { '127.0.0.1' }
+  let(:receiver) { UDPSocket.new.tap { |s| s.bind(loopback, 0) } }
   let(:recv_port) { receiver.addr[1] }
-  let(:socket) { described_class.create('LocalHost' => '127.0.0.1') }
+  let(:socket) { described_class.create('LocalHost' => loopback) }
 
-  after do
-    socket.close rescue nil
-    receiver.close rescue nil
+  def make_server
+    Rex::Socket::Udp.create('LocalHost' => loopback, 'LocalPort' => 0)
+  end
+
+  def make_client(port)
+    Rex::Socket::Udp.create('PeerHost' => loopback, 'PeerPort' => port)
+  end
+
+  describe '#recvfrom' do
+    it 'returns the data and a stdlib-style sender address tuple' do
+      server = make_server
+      client = make_client(server.local_address.ip_port)
+      client.write('hello')
+
+      data, addr = server.recvfrom(65535)
+      expect(data).to eq('hello')
+      expect(addr).to be_an(Array)
+      expect(addr.length).to eq(4)
+
+      af_name, port, host, numeric = addr
+      expect(af_name).to eq('AF_INET')
+      expect(port).to be_a(Integer)
+      expect(host).to eq(loopback)
+      expect(numeric).to eq(loopback)
+    ensure
+      client&.close
+      server&.close
+    end
   end
 
   describe '#send' do
@@ -54,6 +80,31 @@ RSpec.describe Rex::Socket::Udp do
     it 'calls .send with the expected arguments' do
       expect(socket).to receive(:send).with('data', 0, '127.1.1.1', 1337)
       socket.sendto('data', '127.1.1.1', 1337)
+    end
+  end
+
+  describe '#timed_recvfrom' do
+    it 'returns the datagram and sender address when one arrives in time' do
+      server = make_server
+      client = make_client(server.local_address.ip_port)
+      client.write('ping')
+
+      result = server.timed_recvfrom(65535, 5)
+      expect(result).to_not be_nil
+
+      data, addr = result
+      expect(data).to eq('ping')
+      expect(addr).to eq(['AF_INET', addr[1], loopback, loopback])
+    ensure
+      client&.close
+      server&.close
+    end
+
+    it 'returns nil when no datagram arrives before the timeout' do
+      server = make_server
+      expect(server.timed_recvfrom(65535, 0.1)).to be_nil
+    ensure
+      server&.close
     end
   end
 end
