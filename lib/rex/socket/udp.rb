@@ -118,8 +118,8 @@ module Rex::Socket::Udp
       # Catch unconnected IPv6 sockets talking to IPv4 addresses
       peer = Rex::Socket.resolv_nbo(host)
       if peer.length == 4 && self.ipv == 6
-        host = Rex::Socket.getaddress(host, true)
-        host = '::ffff:' + host unless host[0, 7].downcase == '::ffff:'
+        host_address = Rex::Socket.getaddress(host, true)
+        host = '::ffff:' + host_address unless host_address.downcase.start_with?('::ffff:')
       end
       begin
         super(mesg, flags, Rex::Socket.to_sockaddr(host, port))
