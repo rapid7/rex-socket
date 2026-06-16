@@ -185,7 +185,7 @@ module Rex::Socket::Udp
   private :sender_addr_info
 
   #
-  # Calls recvfrom and only returns the data
+  # Calls #timed_read and returns the data
   #
   def get(timeout=nil)
     timed_read(65535, timeout)

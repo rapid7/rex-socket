@@ -8,11 +8,11 @@ RSpec.describe Rex::Socket::Udp do
   let(:socket) { described_class.create('LocalHost' => loopback) }
 
   def make_server
-    Rex::Socket::Udp.create('LocalHost' => loopback, 'LocalPort' => 0)
+    described_class.create('LocalHost' => loopback, 'LocalPort' => 0)
   end
 
   def make_client(port)
-    Rex::Socket::Udp.create('PeerHost' => loopback, 'PeerPort' => port)
+    described_class.create('PeerHost' => loopback, 'PeerPort' => port)
   end
 
   describe '#recvfrom' do
