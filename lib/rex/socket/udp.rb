@@ -97,23 +97,41 @@ module Rex::Socket::Udp
   #
   # Sends a datagram to the supplied host:port with optional flags.
   #
+  # @deprecated Use {#send} with the stdlib 4-arg form send(mesg, flags, host, port) instead.
+  #   Note the argument order differs: sendto(gram, host, port, flags) vs send(mesg, flags, host, port).
+  #
   def sendto(gram, peerhost, peerport, flags = 0)
+    warn "#{self.class}#sendto is deprecated; use send(mesg, flags, host, port) instead", uplevel: 1
+    send(gram, flags, peerhost, peerport)
+  end
 
-    # Catch unconnected IPv6 sockets talking to IPv4 addresses
-    peer = Rex::Socket.resolv_nbo(peerhost)
-    if (peer.length == 4 and self.ipv == 6)
-      peerhost = Rex::Socket.getaddress(peerhost, true)
-      if peerhost[0,7].downcase != '::ffff:'
-        peerhost = '::ffff:' + peerhost
+  #
+  # Sends a datagram using the stdlib 4-arg form send(mesg, flags, host, port).
+  #
+  # The 4-arg form handles IPv6/IPv4 address mapping and dispatches via
+  # BasicSocket#send with a packed sockaddr, so channel/pivoted sockets that
+  # override sendto are not involved. Also accepts the 3-arg sockaddr form used
+  # by lower-level callers, and the 2-arg connected-socket form.
+  #
+  def send(mesg, flags, host = nil, port = nil)
+    if host && port
+      # Catch unconnected IPv6 sockets talking to IPv4 addresses
+      peer = Rex::Socket.resolv_nbo(host)
+      if peer.length == 4 && self.ipv == 6
+        host_address = Rex::Socket.getaddress(host, true)
+        host = '::ffff:' + host_address unless host_address.downcase.start_with?('::ffff:')
       end
+      begin
+        super(mesg, flags, Rex::Socket.to_sockaddr(host, port))
+      rescue ::Errno::EHOSTUNREACH, ::Errno::ENETDOWN, ::Errno::ENETUNREACH, ::Errno::ENETRESET,
+             ::Errno::EHOSTDOWN, ::Errno::EACCES, ::Errno::EINVAL, ::Errno::EADDRNOTAVAIL
+        nil
+      end
+    elsif host
+      super(mesg, flags, host)
+    else
+      super(mesg, flags)
     end
-
-    begin
-      send(gram, flags, Rex::Socket.to_sockaddr(peerhost, peerport))
-    rescue  ::Errno::EHOSTUNREACH,::Errno::ENETDOWN,::Errno::ENETUNREACH,::Errno::ENETRESET,::Errno::EHOSTDOWN,::Errno::EACCES,::Errno::EINVAL,::Errno::EADDRNOTAVAIL
-      return nil
-    end
-
   end
 
   #
