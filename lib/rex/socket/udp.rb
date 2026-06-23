@@ -135,37 +135,60 @@ module Rex::Socket::Udp
   end
 
   #
-  # Receives a datagram and returns the data and host:port of the requestor
-  # as [ data, host, port ].
+  # Receives a datagram and returns the data and sender address information as
+  # [ data, [address_family, port, host, host] ], matching stdlib
+  # UDPSocket#recvfrom. Like the stdlib method, this blocks until a datagram is
+  # available and has no timeout of its own (see #timed_recvfrom for a variant
+  # that does). The host appears in both the hostname and numeric address
+  # positions; no reverse-DNS lookup is performed.
   #
-  def recvfrom(length = 65535, timeout=def_read_timeout)
-
-    begin
-      if ((rv = ::IO.select([ fd ], nil, nil, timeout)) and
-          (rv[0]) and (rv[0][0] == fd)
-         )
-          data, saddr    = recvfrom_nonblock(length)
-          af, host, port = Rex::Socket.from_sockaddr(saddr)
-
-          return [ data, host, port ]
-      else
-        return [ '', nil, nil ]
-      end
-    rescue ::Timeout::Error
-      return [ '', nil, nil ]
-    rescue ::Interrupt
-      raise $!
-    rescue ::Exception
-      return [ '', nil, nil ]
-    end
+  # @param maxlen [Integer] maximum number of bytes to receive
+  # @param flags [Integer] flags passed to the underlying recvfrom(2) call (default: 0)
+  # @return [Array(String, Array)] the datagram and the sender address information
+  #
+  def recvfrom(maxlen, flags = 0)
+    # Block until the socket is readable to mirror the stdlib's blocking
+    # UDPSocket#recvfrom; a nil timeout waits indefinitely.
+    ::IO.select([ fd ], nil, nil, nil)
+    data, saddr = recvfrom_nonblock(maxlen, flags)
+    [ data, sender_addr_info(saddr) ]
   end
 
   #
-  # Calls recvfrom and only returns the data
+  # Receives a datagram like #recvfrom but waits at most +timeout+ seconds for
+  # one to arrive, returning nil if the timeout elapses first. The return value
+  # otherwise matches #recvfrom: [ data, [address_family, port, host, host] ].
+  #
+  # @param maxlen [Integer] maximum number of bytes to receive
+  # @param timeout [Numeric] seconds to wait for a datagram before giving up
+  # @return [Array(String, Array), nil] the datagram and sender address
+  #   information, or nil if no datagram arrived within +timeout+ seconds
+  #
+  def timed_recvfrom(maxlen = 65535, timeout = def_read_timeout)
+    return nil unless ::IO.select([ fd ], nil, nil, timeout)
+
+    data, saddr = recvfrom_nonblock(maxlen)
+    [ data, sender_addr_info(saddr) ]
+  rescue ::Timeout::Error, ::Errno::ECONNREFUSED
+    nil
+  end
+
+  #
+  # Converts a packed sockaddr into the stdlib UDPSocket#recvfrom-style sender
+  # address tuple [ address_family, port, host, host ].
+  #
+  def sender_addr_info(saddr)
+    af, host, port = Rex::Socket.from_sockaddr(saddr)
+    af_name = ::Socket.constants.grep(/^AF_/).find { |c| ::Socket.const_get(c) == af }.to_s
+    [ af_name, port, host, host ]
+  end
+  private :sender_addr_info
+
+  #
+  # Calls #timed_read and returns the data
   #
   def get(timeout=nil)
-    data, saddr, sport = recvfrom(65535, timeout)
-    return data
+    timed_read(65535, timeout)
   end
 
   #
