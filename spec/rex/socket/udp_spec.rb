@@ -106,5 +106,17 @@ RSpec.describe Rex::Socket::Udp do
     ensure
       server&.close
     end
+
+    [::Errno::ECONNREFUSED, ::Errno::ECONNRESET].each do |error_class|
+      it "returns nil when recvfrom_nonblock raises #{error_class}" do
+        server = make_server
+        allow(::IO).to receive(:select).with([server], nil, nil, 0.1).and_return([[server], [], []])
+        allow(server).to receive(:recvfrom_nonblock).and_raise(error_class)
+
+        expect(server.timed_recvfrom(65535, 0.1)).to be_nil
+      ensure
+        server&.close
+      end
+    end
   end
 end
