@@ -108,6 +108,43 @@ RSpec.describe Rex::Socket::Comm::Local do
     end
   end
 
+  describe 'LocalPort 0 assignment' do
+    context 'when creating a TCP server bound to port 0' do
+      it 'updates localport to the OS-assigned port' do
+        params = Rex::Socket::Parameters.new(
+          'Proto'     => 'tcp',
+          'Server'    => true,
+          'LocalHost' => '127.0.0.1',
+          'LocalPort' => 0
+        )
+        sock = described_class.create(params)
+        begin
+          expect(sock.localport).to be > 0
+          expect(sock.localport).to eq(sock.local_address.ip_port)
+        ensure
+          sock.close
+        end
+      end
+    end
+
+    context 'when creating a UDP socket bound to port 0' do
+      it 'updates localport to the OS-assigned port' do
+        params = Rex::Socket::Parameters.new(
+          'Proto'     => 'udp',
+          'LocalHost' => '127.0.0.1',
+          'LocalPort' => 0
+        )
+        sock = described_class.create(params)
+        begin
+          expect(sock.localport).to be > 0
+          expect(sock.localport).to eq(sock.local_address.ip_port)
+        ensure
+          sock.close
+        end
+      end
+    end
+  end
+
   describe 'Interface option' do
     context 'when Interface is set and a proxy is also configured' do
       it 'raises Rex::BindFailed before creating a socket' do
