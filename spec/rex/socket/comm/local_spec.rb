@@ -7,6 +7,7 @@ RSpec.describe Rex::Socket::Comm::Local do
     let(:proto) { ::Socket::IPPROTO_TCP }
     let(:params) { Rex::Socket::Parameters.new({ 'PeerHost' => '192.0.2.1', 'PeerPort' => 1234 }) }
     let(:sock) { RSpec::Mocks::Double.new('socket') }
+    let(:local_address) { RSpec::Mocks::Double.new('local address', ip_port: 49152) }
 
     before(:each) do
       allow(Rex::Socket).to receive(:support_ipv6?).with(no_args).and_return(true)
@@ -14,6 +15,7 @@ RSpec.describe Rex::Socket::Comm::Local do
       allow(sock).to receive(:setsockopt).with(any_args)
       allow(sock).to receive(:bind).with(any_args)
       allow(sock).to receive(:connect).with(any_args).and_return(nil)
+      allow(sock).to receive(:local_address).with(no_args).and_return(local_address)
     end
 
     it 'creates an IPv4 socket' do
