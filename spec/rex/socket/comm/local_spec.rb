@@ -7,6 +7,7 @@ RSpec.describe Rex::Socket::Comm::Local do
     let(:proto) { ::Socket::IPPROTO_TCP }
     let(:params) { Rex::Socket::Parameters.new({ 'PeerHost' => '192.0.2.1', 'PeerPort' => 1234 }) }
     let(:sock) { RSpec::Mocks::Double.new('socket') }
+    let(:local_address) { RSpec::Mocks::Double.new('local address', ip_port: 49152) }
 
     before(:each) do
       allow(Rex::Socket).to receive(:support_ipv6?).with(no_args).and_return(true)
@@ -14,6 +15,7 @@ RSpec.describe Rex::Socket::Comm::Local do
       allow(sock).to receive(:setsockopt).with(any_args)
       allow(sock).to receive(:bind).with(any_args)
       allow(sock).to receive(:connect).with(any_args).and_return(nil)
+      allow(sock).to receive(:local_address).with(no_args).and_return(local_address)
     end
 
     it 'creates an IPv4 socket' do
@@ -104,6 +106,43 @@ RSpec.describe Rex::Socket::Comm::Local do
         expect(Rex::Socket).to_not receive(:getaddress)
         expect(described_class).to receive(:proxy_socks5h).with(sock, type, host, port)
         described_class.proxy(sock, type, host, port)
+      end
+    end
+  end
+
+  describe 'LocalPort 0 assignment' do
+    context 'when creating a TCP server bound to port 0' do
+      it 'updates localport to the OS-assigned port' do
+        params = Rex::Socket::Parameters.new(
+          'Proto'     => 'tcp',
+          'Server'    => true,
+          'LocalHost' => '127.0.0.1',
+          'LocalPort' => 0
+        )
+        sock = described_class.create(params)
+        begin
+          expect(sock.localport).to be > 0
+          expect(sock.localport).to eq(sock.local_address.ip_port)
+        ensure
+          sock.close
+        end
+      end
+    end
+
+    context 'when creating a UDP socket bound to port 0' do
+      it 'updates localport to the OS-assigned port' do
+        params = Rex::Socket::Parameters.new(
+          'Proto'     => 'udp',
+          'LocalHost' => '127.0.0.1',
+          'LocalPort' => 0
+        )
+        sock = described_class.create(params)
+        begin
+          expect(sock.localport).to be > 0
+          expect(sock.localport).to eq(sock.local_address.ip_port)
+        ensure
+          sock.close
+        end
       end
     end
   end
