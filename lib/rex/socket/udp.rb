@@ -169,7 +169,7 @@ module Rex::Socket::Udp
 
     data, saddr = recvfrom_nonblock(maxlen)
     [ data, sender_addr_info(saddr) ]
-  rescue ::Timeout::Error, ::Errno::ECONNREFUSED
+  rescue ::Timeout::Error, ::Errno::ECONNREFUSED, ::Errno::ECONNRESET
     nil
   end
 
@@ -203,4 +203,3 @@ module Rex::Socket::Udp
   end
 
 end
-
