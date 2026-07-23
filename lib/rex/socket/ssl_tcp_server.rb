@@ -72,11 +72,11 @@ module Rex::Socket::SslTcpServer
           ssl.accept_nonblock
 
         rescue ::IO::WaitReadable
-          IO::select( [ self.sslsock ], nil, nil, 0.10 )
+          IO::select( [ ssl ], nil, nil, 0.10 )
           retry
 
         rescue ::IO::WaitWritable
-          IO::select( nil, [ self.sslsock ], nil, 0.10 )
+          IO::select( nil, [ ssl ], nil, 0.10 )
           retry
         end
       end
