@@ -273,10 +273,11 @@ class Rex::Socket::Comm::Local
         end
 
         sock.bind(Rex::Socket.to_sockaddr(ip, param.localport))
-
       rescue ::Errno::EADDRNOTAVAIL,::Errno::EADDRINUSE
         sock.close
         raise Rex::BindFailed.new(param.localhost, param.localport), caller
+      else
+        param.localport = sock.local_address.ip_port
       end
     end
 
