@@ -547,6 +547,12 @@ class Rex::Socket::Comm::Local
       end
 
       self.proxy_socks4a(sock, type, host, port)
+    when Rex::Socket::Proxies::ProxyType::SOCKS4A
+      unless Rex::Socket.is_ipv4?(host) || Rex::Socket.is_name?(host)
+        raise Rex::ConnectionProxyError.new(host, port, type, "The SOCKS4a target host must be an IPv4 address or a hostname"), caller
+      end
+
+      self.proxy_socks4a(sock, type, host, port)
     when Rex::Socket::Proxies::ProxyType::SOCKS5
       # follow the unofficial convention where SOCKS5 handles the resolution locally (which leaks DNS)
       if !Rex::Socket.is_ip_addr?(host)
@@ -592,7 +598,15 @@ class Rex::Socket::Comm::Local
   private
 
   def self.proxy_socks4a(sock, type, host, port)
-    setup = [4,1,port.to_i].pack('CCn') + Rex::Socket.resolv_nbo(host, false) + Rex::Text.rand_text_alpha(rand(8)+1) + "\x00"
+    if Rex::Socket.is_ipv4?(host)
+      address = Rex::Socket.resolv_nbo(host, false)
+      hostname = ''
+    else
+      address = "\x00\x00\x00\x01"
+      hostname = host + "\x00"
+    end
+
+    setup = [4,1,port.to_i].pack('CCn') + address + Rex::Text.rand_text_alpha(rand(8)+1) + "\x00" + hostname
     size = sock.put(setup)
     if size != setup.length
       raise Rex::ConnectionProxyError.new(host, port, type, "Failed to send the entire request to the proxy"), caller

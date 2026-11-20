@@ -7,6 +7,7 @@ module Rex
         SAPNI = 'sapni'
         HTTP = 'http'
         SOCKS4 = 'socks4'
+        SOCKS4A = 'socks4a'
         SOCKS5 = 'socks5'
         SOCKS5H = 'socks5h'
       end

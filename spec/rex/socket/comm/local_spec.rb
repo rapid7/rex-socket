@@ -85,6 +85,38 @@ RSpec.describe Rex::Socket::Comm::Local do
       end
     end
 
+    context 'when type is socks4a' do
+      let(:type) { 'socks4a' }
+      let(:host) { 'example.test' }
+
+      before(:each) do
+        stub_const('Rex::Text', Module.new)
+        allow(Rex::Text).to receive(:rand_text_alpha).and_return('user')
+      end
+
+      it 'sends the hostname for remote resolution' do
+        expect(Rex::Socket).not_to receive(:getaddress)
+        request = [4, 1, port].pack('CCn') + "\x00\x00\x00\x01user\x00#{host}\x00"
+        expect(sock).to receive(:put).with(request).and_return(request.length)
+        expect(sock).to receive(:get_once).with(8, 30).and_return("\x00\x5a\x00\x00\x00\x00\x00\x00")
+
+        described_class.proxy(sock, type, host, port)
+      end
+
+      it 'uses the standard SOCKS4 request for an IPv4 address' do
+        host = '192.0.2.1'
+        request = [4, 1, port].pack('CCn') + Rex::Socket.resolv_nbo(host, false) + "user\x00"
+        expect(sock).to receive(:put).with(request).and_return(request.length)
+        expect(sock).to receive(:get_once).with(8, 30).and_return("\x00\x5a\x00\x00\x00\x00\x00\x00")
+
+        described_class.proxy(sock, type, host, port)
+      end
+
+      it 'rejects an IPv6 target' do
+        expect { described_class.proxy(sock, type, '::1', port) }.to raise_error(Rex::ConnectionProxyError, /IPv4 address or a hostname/)
+      end
+    end
+
     context 'when type is socks5' do
       let(:type) { 'socks5' }
       let(:host) { 'localhost' }
