@@ -122,10 +122,23 @@ class Rex::Socket::Comm::Local
   # Creates a socket using the supplied Parameter instance.
   #
   def self.create_by_type(param, type, proto = 0)
+    if param.proxies?
+      proxy_host = param.proxies.first.hostname
+      proxy_address = if Rex::Socket.is_ip_addr?(proxy_host)
+                        proxy_host
+                      else
+                        Rex::Socket.getaddress(proxy_host, Rex::Socket.support_ipv6?)
+                      end
+      raise ::SocketError, "Unable to resolve proxy host #{proxy_host}" unless proxy_address
+    end
+
     # Detect IPv6 addresses and enable IPv6 accordingly
     if Rex::Socket.support_ipv6?
+      # The socket connects to the first proxy, not the eventual target.
+      if proxy_address
+        param.v6 = Rex::Socket.is_ipv6?(proxy_address)
       # Enable IPv6 dual-bind mode for unbound UDP sockets on Linux
-      if type == ::Socket::SOCK_DGRAM && Rex::Compat.is_linux && !param.localhost && !param.peerhost
+      elsif type == ::Socket::SOCK_DGRAM && Rex::Compat.is_linux && !param.localhost && !param.peerhost
         param.v6 = true
 
       # Check if either of the addresses is 16 octets long
@@ -142,7 +155,7 @@ class Rex::Socket::Comm::Local
           end
         end
 
-        if param.peerhost && Rex::Socket.is_ipv4?(param.peerhost)
+        if !param.proxies? && param.peerhost && Rex::Socket.is_ipv4?(param.peerhost)
           if Rex::Socket.addr_atoi(param.peerhost) == 0
             param.peerhost = '::'
           else
@@ -348,7 +361,7 @@ class Rex::Socket::Comm::Local
         ip6_scope_idx = 0
 
         if param.proxies?
-          ip   = param.proxies.first.host
+          ip   = proxy_address
           port = param.proxies.first.port
         else
           if Rex::Socket.is_ip_addr?(param.peerhost)
@@ -417,7 +430,7 @@ class Rex::Socket::Comm::Local
 
       if param.proxies?
         param.proxies.each_cons(2) do |current_proxy, next_proxy|
-          proxy(sock, current_proxy.scheme, next_proxy.host, next_proxy.port)
+          proxy(sock, current_proxy.scheme, next_proxy.hostname, next_proxy.port)
         end
         current_proxy = param.proxies.last
         proxy(sock, current_proxy.scheme, param.peerhost, param.peerport)
