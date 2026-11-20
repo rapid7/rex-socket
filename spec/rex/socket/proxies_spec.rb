@@ -8,6 +8,7 @@ RSpec.describe Rex::Socket::Proxies do
       expected = %w[
         sapni
         socks4
+        socks4a
         http
         socks5
         socks5h
@@ -24,6 +25,7 @@ RSpec.describe Rex::Socket::Proxies do
       { value: 'http://localhost', expected: [URI('http://localhost:80')]},
       { value: 'http:localhost:8080', expected: [URI('http://localhost:8080')]},
       { value: 'socks4://localhost', expected: [URI('socks4://localhost:1080')] },
+      { value: 'socks4a://localhost', expected: [URI('socks4a://localhost:1080')] },
       { value: 'socks5://localhost', expected: [URI('socks5://localhost:1080')] },
       { value: 'socks5h://localhost', expected: [URI('socks5h://localhost:1080')] },
       { value: 'sapni:198.51.100.1:8080,       socks4:198.51.100.1:1080      ', expected: [URI('sapni://198.51.100.1:8080'), URI('socks4://198.51.100.1:1080')] },
