@@ -46,6 +46,58 @@ RSpec.describe Rex::Socket::Comm::Local do
         described_class.create_by_type(params, type, proto)
       end
     end
+
+    context 'with an IPv6 proxy and IPv4 target' do
+      let(:params) { Rex::Socket::Parameters.new({ 'PeerHost' => '192.0.2.1', 'PeerPort' => 1234, 'Proxies' => 'socks5h://[::1]:1080' }) }
+
+      before(:each) do
+        allow(described_class).to receive(:proxy)
+      end
+
+      it 'uses an IPv6 socket while preserving the IPv4 target for the proxy request' do
+        expect(::Socket).to receive(:new).with(::Socket::AF_INET6, type, proto).and_return(sock)
+        expect(sock).to receive(:connect).with(Rex::Socket.to_sockaddr('::1', 1080))
+        expect(described_class).to receive(:proxy).with(sock, 'socks5h', '192.0.2.1', 1234)
+
+        described_class.create_by_type(params, type, proto)
+      end
+    end
+
+    context 'with an IPv4 proxy and IPv6 target' do
+      let(:params) { Rex::Socket::Parameters.new({ 'PeerHost' => '2001:db8::1', 'PeerPort' => 1234, 'Proxies' => 'socks5h://192.0.2.2:1080' }) }
+
+      it 'uses an IPv4 socket while preserving the IPv6 target for the proxy request' do
+        expect(::Socket).to receive(:new).with(::Socket::AF_INET, type, proto).and_return(sock)
+        expect(sock).to receive(:connect).with(Rex::Socket.to_sockaddr('192.0.2.2', 1080))
+        expect(described_class).to receive(:proxy).with(sock, 'socks5h', '2001:db8::1', 1234)
+
+        described_class.create_by_type(params, type, proto)
+      end
+    end
+
+    context 'with a hostname proxy that resolves to IPv6' do
+      let(:params) { Rex::Socket::Parameters.new({ 'PeerHost' => '192.0.2.1', 'PeerPort' => 1234, 'Proxies' => 'socks5h://localhost:1080' }) }
+
+      it 'uses the resolved proxy address to select the socket family and connect' do
+        expect(Rex::Socket).to receive(:getaddress).with('localhost', true).and_return('::1')
+        expect(::Socket).to receive(:new).with(::Socket::AF_INET6, type, proto).and_return(sock)
+        expect(sock).to receive(:connect).with(Rex::Socket.to_sockaddr('::1', 1080))
+        allow(described_class).to receive(:proxy)
+
+        described_class.create_by_type(params, type, proto)
+      end
+    end
+
+    context 'with an IPv6 proxy later in the chain' do
+      let(:params) { Rex::Socket::Parameters.new({ 'PeerHost' => '192.0.2.1', 'PeerPort' => 1234, 'Proxies' => 'socks5h://192.0.2.2:1080,socks5h://[::1]:1081' }) }
+
+      it 'passes the unbracketed IPv6 address to the preceding proxy' do
+        expect(described_class).to receive(:proxy).with(sock, 'socks5h', '::1', 1081).ordered
+        expect(described_class).to receive(:proxy).with(sock, 'socks5h', '192.0.2.1', 1234).ordered
+
+        described_class.create_by_type(params, type, proto)
+      end
+    end
   end
 
   describe '.proxy' do
